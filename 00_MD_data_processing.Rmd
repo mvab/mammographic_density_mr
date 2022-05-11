@@ -1,0 +1,69 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(vroom)
+library(dplyr)
+```
+
+```{r}
+# set path for pre-calculated data, outside the code repo
+# `local` / `remote` (reading data from RDSF)
+currently_working_env = "local"
+source("set_paths.R")
+set_paths(currently_working_env)
+
+```
+
+```{r}
+md_gwas_all <- read_csv(paste0(data_path, "MD_raw_files/", "MD_study_required_GWAS_results_2022-02-13.csv"))
+
+
+### SNPs for outcomes
+
+# filter to the present SNPs and select required cols
+md_gwas_all <- md_gwas_all %>% 
+              filter(RSid_MD_GWAS != '.')  %>% 
+              select(SNP, effect_allele, other_allele, effect_allele_freq, beta_DA:pval_PD) %>% 
+              mutate_at(vars(effect_allele_freq:pval_PD), as.numeric)
+
+# split into 3 MD datasets and update colnames
+md_gwas_DA <- md_gwas_all %>% 
+              select(SNP, effect_allele, other_allele, effect_allele_freq, contains("_DA")) %>% 
+              setNames(gsub("_DA","",names(.))) 
+md_gwas_NDA <- md_gwas_all %>% 
+              select(SNP, effect_allele, other_allele, effect_allele_freq, contains("_NDA")) %>% 
+              setNames(gsub("_NDA","",names(.))) 
+md_gwas_PD <- md_gwas_all %>% 
+              select(SNP, effect_allele, other_allele, effect_allele_freq, contains("_PD")) %>% 
+              setNames(sub("_PD","",names(.))) 
+
+
+## SNPs for exposures
+
+md_gwas_DA_tophits <- read_csv(paste0(data_path, "MD_raw_files/", "MD_significant_snps_DA_2022-02-11.csv")) %>% 
+                      select(-chrom, -pos, SNP = rsid)
+md_gwas_NDA_tophits <- read_csv(paste0(data_path, "MD_raw_files/", "MD_significant_snps_NDA_2022-02-11.csv")) %>% 
+                      select(-chrom, -pos, SNP = rsid)
+md_gwas_PD_tophits <- read_csv(paste0(data_path, "MD_raw_files/", "MD_significant_snps_PD_2022-02-11.csv")) %>% 
+                      select(-chrom, -pos, SNP = rsid)
+
+
+## merge exposure and outcome SNPs and save
+
+md_gwas_DA <- bind_rows(md_gwas_DA, md_gwas_DA_tophits) %>% distinct()
+md_gwas_NDA<- bind_rows(md_gwas_NDA, md_gwas_NDA_tophits) %>% distinct()
+md_gwas_PD <- bind_rows(md_gwas_PD, md_gwas_PD_tophits) %>% distinct()
+  
+# save as 3 files
+md_gwas_DA %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_DA.csv"))
+md_gwas_NDA %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_NDA.csv"))
+md_gwas_PD %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_PD.csv"))
+
+```
+

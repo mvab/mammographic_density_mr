@@ -1,0 +1,136 @@
+---
+title: "Format data and extract instruments"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(vroom)
+library(dplyr)
+library(TwoSampleMR)
+```
+
+```{r}
+# set path for pre-calculated data, outside the code repo
+# `local` / `remote` (reading data from RDSF)
+currently_working_env = "local"
+source("set_paths.R")
+set_paths(currently_working_env)
+
+# metadata file that is iteratively read in and updated
+data_lookup_file <- paste0("metadata/data_lookup.csv")
+data_lookup<-read_csv(data_lookup_file)
+
+# functions
+source("functions.R")
+```
+
+
+```{r}
+# supl functions
+
+read_and_format <-function(file_gwas, data_version="ieu_gwas_pipeline"){
+  
+  # different versions of data formats to read in
+  if (data_version == "ieu_gwas_pipeline"){
+    # data produced by IEU GWAS pipeline
+    out <-vroom(file_gwas,
+          col_select = c("SNP","BETA","SE","ALLELE1","ALLELE0","A1FREQ","P_BOLT_LMM_INF")) %>% 
+               format_data(., type="outcome",
+                              snp_col = "SNP",
+                              beta_col = "BETA",
+                              se_col = "SE",
+                              effect_allele_col = "ALLELE1",
+                              other_allele_col = "ALLELE0",
+                              eaf_col = "A1FREQ",
+                              pval_col = "P_BOLT_LMM_INF")
+
+  } else if (data_version == "ieu_gwas_pipeline_v2"){
+     # data produced by IEU GWAS pipeline: pval col P_BOLT_LMM
+    out <-vroom(file_gwas,
+          col_select = c("SNP","BETA","SE","ALLELE1","ALLELE0","A1FREQ","P_BOLT_LMM")) %>% 
+               format_data(., type="outcome",
+                              snp_col = "SNP",
+                              beta_col = "BETA",
+                              se_col = "SE",
+                              effect_allele_col = "ALLELE1",
+                              other_allele_col = "ALLELE0",
+                              eaf_col = "A1FREQ",
+                              pval_col = "P_BOLT_LMM")
+    
+  } else if (data_version == "shared_subset"){
+    # data shared as text files; pre-processed in script 00_..
+    out <-vroom(file_gwas) %>% 
+               format_data(., type="outcome",
+                              snp_col = "SNP",
+                              beta_col = "beta",
+                              se_col = "se",
+                              effect_allele_col = "effect_allele",
+                              other_allele_col = "other_allele",
+                              eaf_col = "effect_allele_freq",
+                              pval_col = "pval")
+  }
+  return(out)
+  
+}
+
+extract_tophits <- function(outcome_gwas){
+    outcome_gwas %>%
+      filter(pval.outcome < 5e-8) %>% 
+      convert_outcome_to_exposure() %>% 
+      clump_data(., clump_r2 = 0.001)
+}
+```
+
+```{r}
+# specify the source of full summary stats GWAS file
+data_source <- "shared_subset" # ieu_gwas_pipeline_v2
+traits <- data_lookup %>% filter(source == data_source) %>% filter(trait_category == 'md') %>%  pull(trait)
+```
+
+# Process every file in a standard way: 
+# - Format GWAs data into outcome format and save as `GWAS_tidy_outcome.txt.gz`
+# - Extract instruments and save as `tophits.tsv`
+
+```{r message=F}
+
+tidy_gwas <- "_GWAS_tidy_outcome.txt.gz"
+tidy_tophits <- "_tophits.tsv"
+
+
+for (current_trait in traits) {
+
+  gwas_filename<- data_lookup %>% filter(trait == current_trait) %>% pull(original_file)
+  file_gwas <- paste0(data_path_gwas_raw, gwas_filename)
+
+  print(paste0("Processing: ", current_trait, ", ", gwas_filename))
+  gwas_outcome_format<-read_and_format(file_gwas, data_version = data_source)
+  gwas_outcome_format$outcome <- current_trait
+  print("   -> finished formatting")
+  
+  data_name <- paste0(data_lookup %>% filter(trait == current_trait) %>% pull(trait_file_name))
+  print(paste0("Saving tidy GWAS outcome file to: ", data_path_gwas, data_name, tidy_gwas))
+  vroom_write(gwas_outcome_format, paste0(data_path_gwas, data_name, tidy_gwas ))
+  
+  print("Extracting tophits")
+  #gwas_outcome_format<-vroom(paste0(data_path_gwas, data_name, tidy_gwas )) # uncomment if need to run from here
+  tophits <- extract_tophits(gwas_outcome_format)
+  if (!exists("tophits")) { stop("Extarcting instruments failed!")}
+  print(paste0("Found ", dim(tophits)[1], " SNPs at < 5e-8"))
+  write_tsv(tophits, paste0(data_path_tophits, data_name, tidy_tophits))
+  print(paste0("Saved tophits file: ", paste0(data_path_tophits, data_name, tidy_tophits)))
+  
+  rm(gwas_outcome_format)
+  rm(tophits)
+  
+  # update lookup file
+  read_csv(data_lookup_file) %>% 
+    mutate(full_data = ifelse(trait == current_trait, paste0(data_name, tidy_gwas), full_data)) %>%
+    mutate(tophits_data = ifelse(trait == current_trait, paste0(data_name, tidy_tophits), tophits_data)) %>% 
+    mutate(format = ifelse(trait == current_trait, "tsv", format)) %>% 
+    write_csv(data_lookup_file)
+  print("Updated data lookup file")
+}                       
+```
+

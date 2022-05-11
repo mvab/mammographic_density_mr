@@ -1,0 +1,8 @@
+trait,trait_category,original_file,full_data,tophits_data,trait_file_name,source,format,mrbase.id
+Childhood body size,bmi,BMI_10_adj_month_f_imputed.txt.gz,early_bmi_adj_GWAS_tidy_outcome.txt.gz,early_bmi_adj_tophits.tsv,early_bmi_adj,ieu_gwas_pipeline,tsv,NA
+Adult body size,bmi,BMI_adult_female.txt.gz,adult_bmi_GWAS_tidy_outcome.txt.gz,adult_bmi_tophits.tsv,adult_bmi,ieu_gwas_pipeline,tsv,NA
+Age at menarche (UKB),reproductive_traits,NA,NA,NA,age_at_menarche_ukb,NA,mrbase,ukb-b-3768
+IGF,hormones,igf_females_imputed.txt.gz,igf_GWAS_tidy_outcome.txt.gz,igf_tophits.tsv,igf,ieu_gwas_pipeline_v2,tsv,NA
+Dense area,md,md_gwas_DA.csv,dense_area_GWAS_tidy_outcome.txt.gz,dense_area_tophits.tsv,dense_area,shared_subset,tsv,NA
+Non-dense area,md,md_gwas_NDA.csv,nondense_area_GWAS_tidy_outcome.txt.gz,nondense_area_tophits.tsv,nondense_area,shared_subset,tsv,NA
+Percent density,md,md_gwas_PD.csv,percent_density_GWAS_tidy_outcome.txt.gz,percent_density_tophits.tsv,percent_density,shared_subset,tsv,NA
