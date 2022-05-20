@@ -166,7 +166,7 @@ for (i in 1:length(bcac_lookup$trait)){
   # save full data from MR analyses
   ind_res_dir <- paste0(results_path, current_trait_category, "/")
   ind_res_dir_w_backslash <- gsub(" ", "\\ ", ind_res_dir, fixed=T) # create path vector escaping spaces, otherwise sytem call cant process it
-  if(!dir.exists(ind_res_dir)){ system(paste("mkdir -p", ind_res_dir))}
+  if(!dir.exists(ind_res_dir)){ system(paste("mkdir -p", ind_res_dir_w_backslash))}
   
   
   write_tsv(dat, paste0(ind_res_dir,"merged_mr_mediators_", current_trait_category,"-to-BCAC_", outcome_trait_name,".tsv"))
@@ -273,7 +273,7 @@ p<-ggplot(dat_all, aes(y=exposure, x=or, label=outcome, colour=exposure, shape=m
   geom_vline(xintercept=1, linetype='longdash') +
   geom_text(aes(label=OR_CI),hjust=-0.1, vjust=-0.6, size =2.5, color = 'darkgrey')+
   theme_minimal_hgrid(10, rel_small = 1) +
-  facet_wrap(~exposure, ncol=1)+
+  facet_wrap(~outcome, ncol=1)+
   labs(color = "",y = "", x = "Odds ratio",
        title= paste0("Univariate MR results for ", gsub("_", " ",current_trait_category) ,", 95% CI") )+
   theme(legend.position = "none", plot.title.position  = "plot")
@@ -284,6 +284,89 @@ ggsave(paste0("figures/mediators_",current_trait_category ,"-to_BCAC_", bc_data,
        units=c("cm"), dpi=200, limitsize=F)
 
 ```
+
+```{r}
+# other plot version
+dat_all2 <- dat_all %>% select(exposure, outcome, or, or_lci95, or_uci95, OR_CI) %>% 
+  mutate(outcome = case_when(outcome =="Breast cancer 2020" ~ "BCAC 2020",
+                             outcome =="Breast cancer 2017" ~ "BCAC 2017",
+                             outcome =="ER+ Breast cancer" ~ "ER+",
+                             outcome =="ER- Breast cancer" ~ "ER-",
+                                           outcome =="Luminal A"    ~ "Luminal A",   
+                                           outcome =="Luminal B"   ~ "Luminal B1",  
+                                           outcome =="Luminal B-HER2 negative" ~ "Luminal B2" ,
+                                           outcome =="HER2 enriched"  ~ "HER2-enriched" ,
+                                           outcome =="TNBC Basal-like"  ~ "TNBC" )) %>% 
+   mutate(outcome = factor(outcome, 
+                          levels = c("BCAC 2017","BCAC 2020",
+                                     "ER+", "ER-",
+                                     "Luminal A", "Luminal B1", "Luminal B2", 
+                                      "HER2-enriched", "TNBC" )),
+         outcome = factor(outcome, levels = rev(levels(outcome))))
+
+pal<-(c(unname(yarrr::piratepal("pony"))))
+pal[6:7]<-c('darkgrey', "#FFEA5E")
+p<-ggplot(dat_all2,
+           aes(y=exposure, x=or,  colour=outcome)) +
+  geom_point(size=3, shape=20, 
+             position = ggstance::position_dodgev(height = 0.7))+
+  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.1, 
+            position = ggstance::position_dodgev(height = 0.7)) +
+  scale_x_continuous(breaks=seq(0.5,3,0.5))+
+  theme_minimal_vgrid(11)+
+  geom_vline(xintercept=1, linetype='longdash') +
+  scale_color_manual(values=pal)+
+  theme(strip.text = element_text(face = 'bold'),
+        strip.text.y = element_text(face = 'bold'),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(),
+        )+
+  panel_border()+
+  labs(color = "",y = "", x = "OR")+
+  theme(legend.position = "right", legend.direction = "vertical", 
+        plot.title.position = "plot")+
+  guides(colour = guide_legend(reverse = TRUE))
+
+
+
+
+```
+
+
+```{r}
+
+# same but using ggforestplot
+dat_all3 <- dat_all %>% select(exposure, outcome, b, se, pval) %>% 
+  mutate(outcome = case_when(outcome =="Breast cancer 2020" ~ "BCAC 2020",
+                             outcome =="Breast cancer 2017" ~ "BCAC 2017",
+                             outcome =="ER+ Breast cancer" ~ "ER+ Breast cancer",
+                             outcome =="ER- Breast cancer" ~ "ER- Breast cancer",
+                             outcome =="Luminal A"    ~ "Luminal A",   
+                             outcome =="Luminal B"   ~ "Luminal B1",  
+                             outcome =="Luminal B-HER2 negative" ~ "Luminal B2" ,
+                             outcome =="HER2 enriched"  ~ "HER2-enriched" ,
+                             outcome =="TNBC Basal-like"  ~ "TNBC" )) %>% 
+  mutate(outcome = factor(outcome, 
+                          levels = c("BCAC 2017","BCAC 2020",
+                                     "ER+ Breast cancer","Luminal A", "Luminal B1", "Luminal B2", 
+                                     "ER- Breast cancer", "HER2-enriched", "TNBC" )),
+         outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
+  rename(name=exposure, trait=outcome)
+
+
+ggforestplot::forestplot(
+  df = dat_all3,
+  estimate = b,
+  pvalue = pval,
+  logodds = F,
+  xlab = "OR",
+  title = "title",
+  colour = trait
+)
+
+```
+
+
 
 
 
