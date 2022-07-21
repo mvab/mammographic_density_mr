@@ -1,0 +1,441 @@
+---
+title: "explore instruments"
+author: "Marina Vabistsevits"
+date: '2022-07-20'
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(data.table)
+library(vroom)
+
+library(tidyr)
+library(purrr)
+library(tibble)
+library(dplyr)
+
+library(TwoSampleMR)
+library(ggplot2)
+library(cowplot)
+library(wesanderson)
+```
+
+```{r message=F}
+# set path for pre-calculated data, outside the code repo
+# `local` / `remote` (reading data from RDSF)
+currently_working_env = "local"
+source("set_paths.R")
+set_paths(currently_working_env)
+
+# metafile
+data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
+bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) 
+
+# load functions
+source("functions.R")
+```
+
+
+```{r}
+da_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_DA_sieh_tophits.tsv"), show_col_types = FALSE) #16
+nda_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_NDA_sieh_tophits.tsv")) # 11
+pd_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_PD_sieh_tophits.tsv")) # 10
+                   
+
+da_new <- read_tsv(paste0(data_path_tophits, "dense_area_tophits.tsv")) # 25
+nda_new <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits.tsv")) # 16
+pd_new <- read_tsv(paste0(data_path_tophits, "percent_density_tophits.tsv")) # 16
+
+```
+
+```{r}
+# DA -new
+
+out <- extract_outcome_data(snps = da_new$SNP, outcome = "ieu-a-1126")
+harmonised_new<- harmonise_data(exposure_dat = da_new, outcome_dat = out)
+
+res_new <- mr(harmonised_new) %>% 
+  split_outcome() %>% 
+  generate_odds_ratios()
+
+het_new<- mr_heterogeneity(harmonised_new)
+egger_int_new <- mr_pleiotropy_test(harmonised_new)
+
+
+res <- mr(harmonised_new)
+#> Analysing 'ieu-a-2' on 'ieu-a-7'
+p1_new <- mr_scatter_plot(res_new, harmonised_new)
+
+res_single_new <- mr_singlesnp(harmonised_new, all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression","mr_weighted_median","mr_weighted_mode"))%>% 
+  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
+p2_new <- mr_forest_plot(res_single_new)
+
+
+res_loo <- mr_leaveoneout(harmonised_new)
+p3_new <- mr_leaveoneout_plot(res_loo)
+
+```
+
+```{r}
+# DA - old
+
+out <- extract_outcome_data(snps = da_old$SNP, outcome = "ieu-a-1126")
+harmonised_old<- harmonise_data(exposure_dat = da_old, outcome_dat = out)
+
+res_old <- mr(harmonised_old) %>% 
+  split_outcome() %>% 
+  generate_odds_ratios()
+
+het_old<- mr_heterogeneity(harmonised_old)
+egger_int_old <- mr_pleiotropy_test(harmonised_old)
+
+
+res <- mr(harmonised_old)
+#> Analysing 'ieu-a-2' on 'ieu-a-7'
+p1_old <- mr_scatter_plot(res_old, harmonised_old)
+
+res_single_old <- mr_singlesnp(harmonised_old, all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression","mr_weighted_median","mr_weighted_mode")) %>% 
+  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
+p2_old <- mr_forest_plot(res_single_old)
+
+
+res_loo <- mr_leaveoneout(harmonised_old)
+p3_old <- mr_leaveoneout_plot(res_loo)
+
+
+```
+
+```{r}
+library(cowplot)
+
+x<-plot_grid(p1_new[[1]], p2_new[[1]], p3_new[[1]],
+             p1_old[[1]], p2_old[[1]], p3_old[[1]], 
+             
+             labels = c('new', '', "", "old"), nrow=2) 
+
+
+
+```
+
+
+```{r}
+# try MR presso
+# Load a simulated toy dataset
+data(SummaryStats)
+
+# Run MR-PRESSO global method
+mrpres <- mr_presso(data = SummaryStats, 
+                    BetaOutcome = "Y_effect", BetaExposure = "E1_effect",
+                    SdOutcome = "Y_se", SdExposure = "E1_se",
+                    OUTLIERtest = TRUE, DISTORTIONtest = TRUE, NbDistribution = 1000,  SignifThreshold = 0.05)
+
+mrpres_res <- as.data.frame(mrpres$`Main MR results` )
+
+mrpres_res%>% rename(b=`Causal Estimate`, se = Sd) %>% generate_odds_ratios()
+
+View(mrpres$`MR-PRESSO results`)
+
+```
+
+```{r}
+
+
+mr_presso_new <- mr_presso(data = harmonised_new,
+                       BetaOutcome = "beta.outcome", BetaExposure = "beta.exposure", 
+                       SdOutcome = "se.outcome", SdExposure = "se.exposure",
+                       OUTLIERtest = TRUE, DISTORTIONtest = TRUE,  NbDistribution = 1000,  SignifThreshold = 0.05)
+mr_presso_new_df <- as.data.frame(mr_presso_new$`Main MR results` )
+
+mr_presso_new_df <- mr_presso_new_df %>% rename(b=`Causal Estimate`, se = Sd) %>% generate_odds_ratios()
+
+outlier_indicies_new <- mr_presso_new$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`
+
+
+harmonised_new %>% select(SNP) %>%  mutate(index = row_number()) %>% filter(index %in% outlier_indicies_new) %>% pull(SNP)
+
+```
+
+```{r}
+
+mr_presso_old <- mr_presso(data = harmonised_old,
+                       BetaOutcome = "beta.outcome", BetaExposure = "beta.exposure", 
+                       SdOutcome = "se.outcome", SdExposure = "se.exposure",
+                       OUTLIERtest = TRUE, DISTORTIONtest = TRUE,  NbDistribution = 1000,  SignifThreshold = 0.05)
+
+mr_presso_old_df <- as.data.frame(mr_presso_old$`Main MR results` )
+
+mr_presso_old_df <- mr_presso_old_df %>% rename(b=`Causal Estimate`, se = Sd) %>% generate_odds_ratios()
+
+
+outlier_indicies_old <- mr_presso_old$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`
+
+
+harmonised_old %>% select(SNP) %>%  mutate(index = row_number()) %>% filter(index %in% outlier_indicies_old) %>% pull(SNP)
+
+```
+
+```{r}
+#F-statistic - new
+harmonised_new$samplesize.exposure <- 24192
+harmonised_new$samplesize.outcome <- 228951 
+harmonised_new <- steiger_filtering(harmonised_new) 
+
+N = harmonised_new$samplesize.exposure[1] #sample size
+K = length(harmonised_new$SNP) #number of SNPs
+total_r2 <- sum(harmonised_new$rsq.exposure) 
+Fstat <- (N-K-1)/K * total_r2 / (1-total_r2)
+total_r2 #0.04015256
+Fstat #43.95659
+```
+
+```{r}
+#F-statistic - old
+harmonised_old$samplesize.exposure <- 24192
+harmonised_old$samplesize.outcome <- 228951 
+harmonised_old <- steiger_filtering(harmonised_old) 
+
+N = harmonised_old$samplesize.exposure[1] #sample size
+K = length(harmonised_old$SNP) #number of SNPs
+total_r2 <- sum(harmonised_old$rsq.exposure) 
+Fstat <- (N-K-1)/K * total_r2 / (1-total_r2)
+total_r2 #0.02187906
+Fstat #36.052
+```
+
+
+
+
+```{r}
+# testing radial MR -new
+library(RadialMR)
+
+# format
+raddat_new <- format_radial(
+  harmonised_new$beta.exposure, harmonised_new$beta.outcome,
+  harmonised_new$se.exposure, harmonised_new$se.outcome, 
+  harmonised_new$SNP)
+
+# test IVW 
+ivwrad_new <- ivw_radial(raddat_new, alpha=0.05/nrow(raddat_new), weights=3) 
+dim(ivwrad_new$outliers)[1]  #9 outliers at bonf 
+
+ivwrad_new <- ivw_radial(raddat_new, alpha=0.05, weights=3)
+dim(ivwrad_new$outliers)[1] #13 outliers at 0.05
+
+# test Egger
+eggrad_new <- egger_radial(raddat_new, alpha=0.05, weights=3)
+eggrad_new <- egger_radial(raddat_new, alpha=0.05/nrow(raddat_new), weights=3)
+eggrad_new$coef 
+dim(eggrad_new$outliers)[1] #12 outliers at 0.05  (9 bonf)
+
+plot_radial(ivwrad_new,radial_scale = T, show_outliers = F,scale_match= T)
+plot_radial(eggrad_new,radial_scale = T, show_outliers = F,scale_match= T)
+
+plot_radial(c(ivwrad_new,eggrad_new), radial_scale = T, show_outliers = F,scale_match= T)
+
+
+ivwrad_new$qstatistic 
+ivwrad_new$sortoutliers <- ivwrad_new$outliers[order(ivwrad_new$outliers$p.value),]
+ivwrad_new$sortoutliers$Qsum <- cumsum(ivwrad_new$sortoutliers$Q_statistic)
+ivwrad_new$sortoutliers$Qdif <- ivwrad_new$sortoutliers$Qsum - ivwrad_new$qstatistic
+
+
+#Remove top outliers
+harmonised_new2 <- harmonised_new[!harmonised_new$SNP %in% ivwrad_new$outliers$SNP,]
+mr_results2 <- mr(harmonised_new2) %>%  generate_odds_ratios()
+```
+
+
+```{r}
+# testing radial MR old
+library(RadialMR)
+
+# format
+raddat_old <- format_radial(
+  harmonised_old$beta.exposure, harmonised_old$beta.outcome,
+  harmonised_old$se.exposure, harmonised_old$se.outcome, 
+  harmonised_old$SNP)
+
+# test IVW 
+ivwrad_old <- ivw_radial(raddat_old, alpha=0.05/nrow(raddat_old), weights=3) 
+dim(ivwrad_old$outliers)[1]  #4 outliers at bonf 
+
+ivwrad_old <- ivw_radial(raddat_old, alpha=0.05, weights=3)
+dim(ivwrad_old$outliers)[1] #7 outliers at 0.05
+
+# test Egger
+eggrad_old <- egger_radial(raddat_old, alpha=0.05, weights=3)
+eggrad_old <- egger_radial(raddat_old, alpha=0.05/nrow(raddat_old), weights=3)
+
+eggrad_old$coef 
+dim(eggrad_old$outliers)[1] #5 outliers at 0.05 
+
+plot_radial(ivwrad_old,radial_scale = T, show_outliers = F,scale_match= T)
+plot_radial(c(ivwrad_old,eggrad_old), radial_scale = T, show_outliers = F,scale_match= T)
+
+
+ivwrad_old$qstatistic 
+ivwrad_old$sortoutliers <- ivwrad_old$outliers[order(ivwrad_old$outliers$p.value),]
+ivwrad_old$sortoutliers$Qsum <- cumsum(ivwrad_old$sortoutliers$Q_statistic)
+ivwrad_old$sortoutliers$Qdif <- ivwrad_old$sortoutliers$Qsum - ivwrad_old$qstatistic
+
+
+#Remove top outliers
+harmonised_old2 <- harmonised_old[!harmonised_old$SNP %in% ivwrad_old$outliers$SNP,]
+mr_results2 <- mr(harmonised_old2) %>%  generate_odds_ratios()
+```
+
+
+```{r}
+# MR clust
+library(mrclust)
+browseVignettes("mrclust")
+#https://github.com/lindgrengroup/obesity_femrepr_MR/blob/9e39114e2d16bf39adc76040cbb6cff588bbb3dc/clustering/SNP_clustering.R
+
+
+# Only keep single-SNP results from relevant columns
+res_single_new <- res_single_new %>%
+                  select("SNP", "exposure", "outcome",  "b", "se") %>% 
+                  filter(grepl("rs", SNP))
+
+
+# Keep relevant columns for clustering
+harmonised_new_sub <- harmonised_new %>%  select("SNP", "exposure", "outcome",
+                                       "beta.exposure", "se.exposure",
+                                       "beta.outcome", "se.outcome")
+cluster_data_new <- left_join(harmonised_new_sub, res_single_new)
+
+
+
+cluster_results_new <- mr_clust_em(theta = cluster_data_new$b, 
+                                   theta_se = cluster_data_new$se,
+                                   bx = cluster_data_new$beta.exposure, 
+                                   by = cluster_data_new$beta.outcome,
+                                   bxse = cluster_data_new$se.exposure,
+                                   byse = cluster_data_new$se.outcome,
+                                   obs_names = cluster_data_new$SNP)
+
+cluster_results_new$results$best
+clusters_new = unique(cluster_results_new$results$best$cluster_class); # same answer if we type
+clusters_new
+head(clusters_new$cluster_membership$cluster_1)
+
+clust_plot_best_new = cluster_results_new$plots$two_stage +
+  ggplot2::xlab("Genetic association with DA") +
+  ggplot2::ylab("Genetic association with BC") +
+  ggplot2::ggtitle("")
+clust_plot_best_new
+
+
+
+clust_list <- names(cluster_results_new$cluster_membership)
+clust_list <- clust_list[!grepl("Null|Junk",clust_list )]
+
+clust_snp_list <- list()
+
+for (i in clust_list){
+  
+  x <- names(cluster_results_new$cluster_membership[[i]])
+  y <- x[x!="pr_range_0.1_to_0" ]
+  
+  a<- cluster_results_new$cluster_membership[[i]][y]
+  snps <- unname(unlist(a))
+  
+  clust_snp_list[[i]] <- snps
+}
+  
+# do mr by cluster
+mr_cluster_list <- list()
+
+for (cluster in names(clust_snp_list)){
+  
+  yy <- harmonised_new %>% filter(SNP %in% clust_snp_list[[cluster]])
+  yy_mr <- mr(yy, method_list = c("mr_ivw")) %>% 
+            generate_odds_ratios() %>%
+            select(-lo_ci, -up_ci, id.exposure) %>% 
+            mutate(cluster_no = cluster)
+  mr_cluster_list[[cluster]] <- yy_mr
+  
+}
+
+out_new <- bind_rows(mr_cluster_list)
+
+
+```
+
+```{r}
+# MR-clust old
+
+# Only keep single-SNP results from relevant columns
+res_single_old <- res_single_old %>%
+                  select("SNP", "exposure", "outcome",  "b", "se") %>% 
+                  filter(grepl("rs", SNP))
+
+
+# Keep relevant columns for clustering
+harmonised_old_sub <- harmonised_old %>%  select("SNP", "exposure", "outcome",
+                                       "beta.exposure", "se.exposure",
+                                       "beta.outcome", "se.outcome")
+cluster_data_old <- left_join(harmonised_old_sub, res_single_old)
+
+
+
+cluster_results_old <- mr_clust_em(theta = cluster_data_old$b, 
+                                   theta_se = cluster_data_old$se,
+                                   bx = cluster_data_old$beta.exposure, 
+                                   by = cluster_data_old$beta.outcome,
+                                   bxse = cluster_data_old$se.exposure,
+                                   byse = cluster_data_old$se.outcome,
+                                   obs_names = cluster_data_old$SNP)
+
+cluster_results_old$results$best
+clusters_old = unique(cluster_results_old$results$best$cluster_class); # same answer if we type
+clusters_old
+head(cluster_results_old$cluster_membership$cluster_1)
+
+clust_plot_best_old = cluster_results_old$plots$two_stage +
+  ggplot2::xlab("Genetic association with DA") +
+  ggplot2::ylab("Genetic association with BC") +
+  ggplot2::ggtitle("")
+clust_plot_best_old
+
+
+clust_list <- names(cluster_results_old$cluster_membership)
+clust_list <- clust_list[!grepl("Null|Junk",clust_list )]
+
+clust_snp_list <- list()
+
+for (i in clust_list){
+  
+  x <- names(cluster_results_old$cluster_membership[[i]])
+  y <- x[x!="pr_range_0.1_to_0" ]
+  
+  a<- cluster_results_old$cluster_membership[[i]][y]
+  snps <- unname(unlist(a))
+  
+  clust_snp_list[[i]] <- snps
+}
+  
+# do mr by cluster
+mr_cluster_list <- list()
+
+for (cluster in names(clust_snp_list)){
+  
+  yy <- harmonised_old %>% filter(SNP %in% clust_snp_list[[cluster]])
+  yy_mr <- mr(yy, method_list = c("mr_ivw")) %>% 
+            generate_odds_ratios() %>%
+            select(-lo_ci, -up_ci, id.exposure) %>% 
+            mutate(cluster_no = cluster)
+  mr_cluster_list[[cluster]] <- yy_mr
+  
+}
+
+out_old <- bind_rows(mr_cluster_list)
+
+
+
+```
+
+
+
