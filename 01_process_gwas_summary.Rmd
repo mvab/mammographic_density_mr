@@ -70,7 +70,49 @@ read_and_format <-function(file_gwas, data_version="ieu_gwas_pipeline"){
                               other_allele_col = "other_allele",
                               eaf_col = "effect_allele_freq",
                               pval_col = "pval")
-  }
+  }else if (data_version == "bcac_md"){
+    
+    # https://ctg.cncr.nl/documents/p1651/readme.txt
+    out <-vroom(file_gwas, col_select = c(	'rsid',	'Allele1',	'Allele2'	,'freq' ,	'Zscore',"Weight",	'P-value') ) 
+    # calc beta and se
+    #Beta = Zscore / sqrt( 2 * MAF * ( 1 - MAF) * ( N + Zscore^2 ) )
+    #SE = 1 / sqrt( 2 * MAF * ( 1 - MAF ) * ( N + Zscore^2 ) )
+    out <- out %>% mutate(beta = Zscore / sqrt( 2 * freq * ( 1 - freq) * ( Weight + Zscore^2 ) )) %>% 
+                   mutate(se = 1 / sqrt( 2 * freq * ( 1 - freq ) * ( Weight + Zscore^2 ) ))
+
+     out <- format_data(out, type="outcome",
+                              snp_col = "rsid",
+                              beta_col = "beta",
+                              se_col = "se",
+                              effect_allele_col = "Allele1",
+                              other_allele_col = "Allele2",
+                              eaf_col = "freq",
+                              pval_col = "P-value")
+     
+  }else if (data_version == "ukb_neale"){
+     # UKB data produced by Neale lab
+    print("reading variants")
+    variants <- vroom(paste0(data_path_gwas_raw, "variants_rsid_only.tsv")) # this is a col subset of variants.tsv.bgz from Neale lab
+    print("reading gwas")
+    gwas <-vroom(file_gwas, col_select = c("variant","minor_allele","minor_AF","beta","se","pval"))
+    
+    print("joining")
+    if (nrow(gwas) == nrow(variants)){
+    merged <- left_join(gwas, variants, by = c("variant"="variant", "minor_allele"="alt")) %>% 
+              select(-variant) %>% select(SNP=rsid, everything())
+    }
+    
+    print("formatting")
+    out <-format_data(merged, type="outcome",
+                              snp_col = "SNP",
+                              beta_col = "beta",
+                              se_col = "se",
+                              effect_allele_col = "minor_allele",
+                              other_allele_col = "ref",
+                              eaf_col = "minor_AF",
+                              pval_col = "pval")
+    
+  } 
   return(out)
   
 }
@@ -86,7 +128,8 @@ extract_tophits <- function(outcome_gwas){
 ```{r}
 # specify the source of full summary stats GWAS file
 data_source <- "shared_subset" # ieu_gwas_pipeline_v2
-traits <- data_lookup %>% filter(source == data_source) %>% filter(trait_category == 'md') %>%  pull(trait)
+trait_cat = 'md_sub'
+traits <- data_lookup %>% filter(source == data_source) %>% filter(trait_category == trait_cat) %>%  pull(trait)
 ```
 
 # Process every file in a standard way: 
@@ -101,15 +144,16 @@ tidy_tophits <- "_tophits.tsv"
 
 for (current_trait in traits) {
 
-  gwas_filename<- data_lookup %>% filter(trait == current_trait) %>% pull(original_file)
+  gwas_filename<- data_lookup %>% filter(trait == current_trait , source == data_source, trait_category == trait_cat) %>% pull(original_file)
   file_gwas <- paste0(data_path_gwas_raw, gwas_filename)
 
   print(paste0("Processing: ", current_trait, ", ", gwas_filename))
   gwas_outcome_format<-read_and_format(file_gwas, data_version = data_source)
   gwas_outcome_format$outcome <- current_trait
+
   print("   -> finished formatting")
   
-  data_name <- paste0(data_lookup %>% filter(trait == current_trait) %>% pull(trait_file_name))
+  data_name <- paste0(data_lookup %>% filter(trait == current_trait, source == data_source, trait_category == trait_cat) %>% pull(trait_file_name))
   print(paste0("Saving tidy GWAS outcome file to: ", data_path_gwas, data_name, tidy_gwas))
   vroom_write(gwas_outcome_format, paste0(data_path_gwas, data_name, tidy_gwas ))
   
