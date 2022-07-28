@@ -302,13 +302,15 @@ dat_all2 <- dat_all %>% select(exposure, outcome, or, or_lci95, or_uci95, OR_CI)
                                      "ER+", "ER-",
                                      "Luminal A", "Luminal B1", "Luminal B2", 
                                       "HER2-enriched", "TNBC" )),
-         outcome = factor(outcome, levels = rev(levels(outcome))))
+         outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
+   mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                              ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
 
 pal<-(c(unname(yarrr::piratepal("pony"))))
 pal[6:7]<-c('darkgrey', "#FFEA5E")
 p<-ggplot(dat_all2,
-           aes(y=exposure, x=or,  colour=outcome)) +
-  geom_point(size=3, shape=20, 
+           aes(y=exposure, x=or,  colour=outcome, shape = effect_direction)) +
+  geom_point(size=3, 
              position = ggstance::position_dodgev(height = 0.7))+
   geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.1, 
             position = ggstance::position_dodgev(height = 0.7)) +
@@ -316,16 +318,17 @@ p<-ggplot(dat_all2,
   theme_minimal_vgrid(11)+
   geom_vline(xintercept=1, linetype='longdash') +
   scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
   theme(strip.text = element_text(face = 'bold'),
         strip.text.y = element_text(face = 'bold'),
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_line(),
         )+
   panel_border()+
-  labs(color = "",y = "", x = "OR")+
+  labs(color = "",y = "", x = "OR", shape="")+
   theme(legend.position = "right", legend.direction = "vertical", 
         plot.title.position = "plot")+
-  guides(colour = guide_legend(reverse = TRUE))
+  guides(colour = guide_legend(reverse = TRUE), shape="none")
 
 
 
