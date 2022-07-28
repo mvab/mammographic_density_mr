@@ -205,6 +205,77 @@ Fstat #36.052
 
 
 
+```{r}
+## estimate r for binary or continouse exposures/outcomes
+r_func <- function(x, logistic.exposure,logistic.outcome ){
+  # function from: https://github.com/sjfandrews/MR_ADPhenome/blob/b64d8821dbf1546090f47e0642cc8092592cddc8/workflow/scripts/mr_SteigerTest.R#L13
+  x$r.exposure <- if(logistic.exposure == TRUE){
+    x %>%
+      mutate(r.exposure = get_r_from_lor(x$beta.exposure, x$eaf.exposure, x$ncase.exposure, x$ncontrol.exposure, x$prevelance.exposure)) %>% pull(r.exposure)
+  } else if(logistic.exposure == FALSE){
+    x %>% mutate(r.exposure = get_r_from_pn(x$pval.exposure, x$samplesize.exposure)) %>% pull(r.exposure)
+  }
+
+  x$r.outcome <- if(logistic.outcome == TRUE){
+    x %>% mutate(r.outcome = get_r_from_lor(x$beta.outcome, x$eaf.outcome, x$ncase.outcome, x$ncontrol.outcome, x$prevelance.outcome)) %>% pull(r.outcome)
+  } else if(logistic.outcome == FALSE){
+    x %>% mutate(r.outcome = get_r_from_pn(x$pval.outcome, x$samplesize.outcome)) %>% pull(r.outcome)
+  }
+  x
+}
+
+
+
+```
+
+```{r}
+ ### MR Steiger test of directionality
+#https://mrcieu.github.io/TwoSampleMR/articles/perform_mr.html#mr-steiger-directionality-test     ###### VIEW THIS
+
+  bc_out <- extract_outcome_data(snps = da_new$SNP, outcome = "ieu-a-1126")
+
+  # harmonising
+  exp_out <- harmonise_data(exposure_dat = da_new, outcome_dat = out)
+  exp_out$samplesize.exposure <- 24192
+  exp_out$samplesize.outcome <- 228951 
+  exp_out$ncase.outcome = 122977
+  exp_out$ncontrol.outcome = 105974
+  exp_out$prevelance.outcome = 0.53
+
+  exp_out <- r_func(exp_out, logistic.exposure=F, logistic.outcome=T)
+  print(nrow(exp_out))
+
+
+  ## Testing MD on BC
+  d_new  <- directionality_test(exp_out)
+ #stei<- mr_steiger(p_exp = exp_out$pval.exposure, p_out = exp_out$pval.outcome, 
+ #         n_exp = exp_out$samplesize.exposure, n_out = exp_out$samplesize.outcome, 
+ #         r_exp = exp_out$beta.exposure, r_out = exp_out$beta.outcome, # these 2 can be 0?
+ #         r_xxo = 1, r_yyo = 1)
+ #
+  bc_out <- extract_outcome_data(snps = da_old$SNP, outcome = "ieu-a-1126")
+
+  # harmonising
+  exp_out <- harmonise_data(exposure_dat = da_old, outcome_dat = out)
+  exp_out$samplesize.exposure <- 24192
+  exp_out$samplesize.outcome <- 228951 
+  exp_out$ncase.outcome = 122977
+  exp_out$ncontrol.outcome = 105974
+  exp_out$prevelance.outcome = 0.53
+
+  exp_out <- r_func(exp_out, logistic.exposure=F, logistic.outcome=T)
+  print(nrow(exp_out))
+	   
+    d_old  <- directionality_test(exp_out)
+
+  
+```
+
+
+
+
+
+
 
 ```{r}
 # testing radial MR -new
