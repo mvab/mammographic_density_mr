@@ -1,11 +1,16 @@
 trait,trait_category,original_file,full_data,tophits_data,trait_file_name,source,format,mrbase.id
 Childhood body size,bmi,BMI_10_adj_month_f_imputed.txt.gz,early_bmi_adj_GWAS_tidy_outcome.txt.gz,early_bmi_adj_tophits.tsv,early_bmi_adj,ieu_gwas_pipeline,tsv,NA
 Adult body size,bmi,BMI_adult_female.txt.gz,adult_bmi_GWAS_tidy_outcome.txt.gz,adult_bmi_tophits.tsv,adult_bmi,ieu_gwas_pipeline,tsv,NA
+Adult BMI,cov,21001_irnt.gwas.imputed_v3.female.tsv.bgz,adult_bmi_cont_ukb_GWAS_tidy_outcome.txt.gz,adult_bmi_cont_ukb_tophits.tsv,adult_bmi_cont_ukb,ukb_neale,tsv,NA
+Adult BMI,cov,NA,adult_bmi_cont_ukb_GWAS_tidy_outcome.txt.gz,adult_bmi_cont_ukb_tophits.tsv,adult_bmi_giant,NA,tsv,ieu-a-974
 Age at menarche (UKB),reproductive_traits,NA,NA,NA,age_at_menarche_ukb,NA,mrbase,ukb-b-3768
 IGF,hormones,igf_females_imputed.txt.gz,igf_GWAS_tidy_outcome.txt.gz,igf_tophits.tsv,igf,ieu_gwas_pipeline_v2,tsv,NA
-Dense area,md,md_gwas_DA.csv,dense_area_GWAS_tidy_outcome.txt.gz,dense_area_tophits.tsv,dense_area,shared_subset,tsv,NA
-Non-dense area,md,md_gwas_NDA.csv,nondense_area_GWAS_tidy_outcome.txt.gz,nondense_area_tophits.tsv,nondense_area,shared_subset,tsv,NA
-Percent density,md,md_gwas_PD.csv,percent_density_GWAS_tidy_outcome.txt.gz,percent_density_tophits.tsv,percent_density,shared_subset,tsv,NA
-Dense area,md_sub,md_gwas_DA.csv,dense_area_GWAS_tidy_outcome.txt.gz,mammographic_density_DA_sieh_tophits.tsv,dense_area,shared_subset,tsv,NA
-Non-dense area,md_sub,md_gwas_NDA.csv,nondense_area_GWAS_tidy_outcome.txt.gz,mammographic_density_NDA_sieh_tophits.tsv,nondense_area,shared_subset,tsv,NA
-Percent density,md_sub,md_gwas_PD.csv,percent_density_GWAS_tidy_outcome.txt.gz,mammographic_density_PD_sieh_tophits.tsv,percent_density,shared_subset,tsv,NA
+Dense area,md,md_gwas_DA.csv,dense_area_sub_GWAS_tidy_outcome.txt.gz,dense_area_sub_tophits.tsv,dense_area,shared_subset,tsv,NA
+Non-dense area,md,md_gwas_NDA.csv,nondense_area_sub_GWAS_tidy_outcome.txt.gz,nondense_area_sub_tophits.tsv,nondense_area,shared_subset,tsv,NA
+Percent density,md,md_gwas_PD.csv,percent_density_sub_GWAS_tidy_outcome.txt.gz,percent_density_sub_tophits.tsv,percent_density,shared_subset,tsv,NA
+Dense area,md_sub,md_gwas_DA.csv,dense_area_sub_GWAS_tidy_outcome.txt.gz,dense_area_sub_tophits.tsv,dense_area_sub,shared_subset,tsv,NA
+Non-dense area,md_sub,md_gwas_NDA.csv,nondense_area_sub_GWAS_tidy_outcome.txt.gz,nondense_area_sub_tophits.tsv,nondense_area_sub,shared_subset,tsv,NA
+Percent density,md_sub,md_gwas_PD.csv,percent_density_sub_GWAS_tidy_outcome.txt.gz,percent_density_sub_tophits.tsv,percent_density_sub,shared_subset,tsv,NA
+Dense area,md_bcac,BCAC_DA_MetaResultswInfo_20210609.txt,dense_area_sub_GWAS_tidy_outcome.txt.gz,dense_area_sub_tophits.tsv,BCAC_DA,bcac_md,tsv,NA
+Non-dense area,md_bcac,BCAC_NDA_MetaResultswInfo_20210609.txt,nondense_area_sub_GWAS_tidy_outcome.txt.gz,nondense_area_sub_tophits.tsv,BCAC_NDA,bcac_md,tsv,NA
+Percent density,md_bcac,BCAC_PMD_MetaResultswInfo_20210609.txt,percent_density_sub_GWAS_tidy_outcome.txt.gz,percent_density_sub_tophits.tsv,BCAC_PMD,bcac_md,tsv,NA
