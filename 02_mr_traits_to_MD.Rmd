@@ -1,0 +1,293 @@
+---
+title: "Univarite MR of traits to MD"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(data.table)
+library(vroom)
+
+library(tidyr)
+library(purrr)
+library(tibble)
+library(dplyr)
+
+library(TwoSampleMR)
+library(ggplot2)
+library(cowplot)
+library(wesanderson)
+```
+
+```{r}
+# set path for pre-calculated data, outside the code repo
+# `local` / `remote` (reading data from RDSF)
+currently_working_env = "local"
+source("set_paths.R")
+set_paths(currently_working_env)
+
+# metafile
+data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
+
+# load functions
+source("functions.R")
+```
+
+
+
+# Run MR for all in a loop 
+
+```{r}
+
+# specify group to process if data is in textfiles
+current_trait_category <- "md"
+outcomes <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(!is.na(full_data)) %>%  pull(trait_file_name) 
+
+```
+
+
+
+```{r}
+
+trait_name = "igf"
+trait_as_exp = data_lookup %>% filter(trait_file_name == trait_name) %>% pull(tophits_data)
+trait_as_exp <- read_tsv(paste0(data_path_tophits, trait_as_exp))
+trait_as_out = data_lookup %>% filter(trait_file_name == trait_name) %>% pull(full_data)
+trait_as_out <- vroom(paste0(data_path_gwas, trait_as_out))
+
+direction1 <-tibble()
+direction2 <-tibble()
+sens1 <-tibble()
+sens2 <-tibble()
+
+
+for (out in outcomes){
+  
+  ### direction 1 trait - MD
+
+  # read exposure and outcome
+  
+  exposure_dat <- trait_as_exp
+  
+  md_pheno_as_outcome <- data_lookup %>% 
+        filter(trait_file_name == out) %>%  filter(trait_category == current_trait_category) %>% pull(full_data)
+  outcome <- vroom(paste0(data_path_gwas, md_pheno_as_outcome))
+    
+  outcome_dat <- outcome %>% filter(SNP %in% exposure_dat$SNP)
+  
+  # harmonise
+  
+  harmonised <- harmonise_data(exposure_dat, outcome_dat )
+  
+  # do steiger
+    
+  streiger =  calc_steiger(harmonised, exposure_ss = 246284, outcome_ss = 24192)
+  streiger$summary
+  
+  # do mr
+  res <- mr(harmonised, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) %>% 
+         split_outcome() %>% 
+         split_exposure() %>% 
+         generate_odds_ratios()
+  
+  direction1<- bind_rows(direction1, res)
+  
+  
+  # do sensitiviry
+  out_sensitivity<-
+    full_join(mr_pleiotropy_test(harmonised),
+              mr_heterogeneity(harmonised, method_list=c("mr_egger_regression", "mr_ivw"))) %>% 
+    select(-c("id.outcome", "id.exposure")) %>% filter(method=="Inverse variance weighted") %>% 
+    left_join(streiger$summary)
+
+  sens1 <- bind_rows(sens1, out_sensitivity )
+
+
+  
+  ### direction 2 
+  
+  md_pheno_as_exposure <- data_lookup %>% 
+        filter(trait_file_name == out) %>%  filter(trait_category == current_trait_category) %>% pull(tophits_data)
+      
+  exposure_dat <- read_tsv(paste0(data_path_tophits, md_pheno_as_exposure))
+  
+  outcome <- trait_as_out
+  outcome_dat <- outcome %>% filter(SNP %in% exposure_dat$SNP)
+  
+  # harmonise
+  
+  harmonised <- harmonise_data(exposure_dat, outcome_dat )
+  
+  # do steiger
+    
+  streiger =  calc_steiger(harmonised, exposure_ss = 24192, outcome_ss = 246284)
+  streiger$summary
+  
+  # do mr
+  res <- mr(harmonised, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) %>% 
+         split_outcome() %>% 
+         split_exposure() %>% 
+         generate_odds_ratios()
+  direction2<- bind_rows(direction2, res)
+  
+  
+  # do sensitiviry
+  out_sensitivity<-
+    full_join(mr_pleiotropy_test(harmonised),
+              mr_heterogeneity(harmonised, method_list=c("mr_egger_regression", "mr_ivw"))) %>% 
+    select(-c("id.outcome", "id.exposure"))   %>% filter(method=="Inverse variance weighted") %>% 
+    left_join(streiger$summary)    
+  
+  sens2 <- bind_rows(sens2, out_sensitivity )
+
+}
+```
+
+
+
+```{r message =F}
+# MR loop
+for (i in 1:length(outcomes)){
+  
+  # Load data (first decide if it's in text file or in MR base)
+  
+  if( outcomes[i] %in% data_lookup$full_data ){
+    # it's a text file
+    mediator_file_name <- data_lookup %>% filter(full_data == outcomes[i]) %>% pull(trait_file_name)
+    
+    # load full GWAS data (outcomes) and subset to exposure SNPs
+    print(paste0("Processing ", outcomes[i]))
+    outcome_mediator <- vroom(paste0(data_path_gwas, outcomes[i]))
+  
+    outcome_mediator_early <- outcome_mediator %>%
+              filter(SNP %in% early_bmi_exp$SNP)
+    outcome_mediator_adult <- outcome_mediator %>%
+              filter(SNP %in% adult_bmi_exp$SNP)
+    rm(outcome_mediator)
+    
+
+  } else if ( outcomes[i] %in% data_lookup$mrbase.id ){
+    # it's in mrbase
+    mediator_file_name <- data_lookup %>% filter(mrbase.id == outcomes[i]) %>% pull(trait_file_name)
+
+   # extrarct exposure SNPs from outcomes in (outcomes) in MRBase
+   print(paste0("Processing ", outcomes[i]))
+   outcome_mediator_early <- extract_outcome_data(
+              snps = early_bmi_exp$SNP,
+              outcome = outcomes[i])
+   outcome_mediator_adult <- extract_outcome_data(
+              snps = adult_bmi_exp$SNP,
+              outcome = outcomes[i])
+   # add better outcome names
+   outcome_mediator_early$outcome <- data_lookup %>% filter(mrbase.id == outcomes[i]) %>% pull(trait)
+   outcome_mediator_adult$outcome <- data_lookup %>% filter(mrbase.id == outcomes[i]) %>% pull(trait)
+  }
+  
+    
+  # Harmonise 
+  dat_early <- harmonise_data(exposure_dat = early_bmi_exp, 
+                          outcome_dat = outcome_mediator_early)
+  dat_adult <- harmonise_data(exposure_dat = adult_bmi_exp, 
+                          outcome_dat = outcome_mediator_adult)
+
+  # Perform MR
+  res_early <- mr(dat_early, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) 
+  res_adult <- mr(dat_adult, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio'))   
+  
+          
+  # Tidy up results and save
+  res_early_tidy<- res_early %>%
+                split_outcome() %>% 
+                split_exposure() %>% 
+                generate_odds_ratios()
+  
+  res_adult_tidy<- res_adult %>%
+                split_outcome() %>% 
+                split_exposure() %>%
+                generate_odds_ratios()
+  
+  out <- rbind(res_early_tidy, res_adult_tidy ) %>% 
+          arrange(method) %>%
+          select(-c("id.outcome", "id.exposure"))
+  
+  
+  # Pleiotropy and Heterogeneity
+  out_sensitivity<- rbind(
+    full_join(mr_pleiotropy_test(dat_early),
+              mr_heterogeneity(dat_early, method_list=c("mr_egger_regression", "mr_ivw"))),
+    full_join(mr_pleiotropy_test(dat_adult),
+              mr_heterogeneity(dat_adult, method_list=c("mr_egger_regression", "mr_ivw"))) 
+  )  %>% select(-c("id.outcome", "id.exposure"))       
+  
+  
+  ind_res_dir <- paste0(results_path, current_trait_category, "/")
+  ind_res_dir_w_backslash <- gsub(" ", "\\ ", ind_res_dir, fixed=T) # create path vector escaping spaces, otherwise sytem call cant process it
+  if(!dir.exists(ind_res_dir)){ system(paste("mkdir -p", ind_res_dir_w_backslash))}
+  
+  write_tsv(out, paste0(ind_res_dir, "MR_BMI-to-", mediator_file_name ,".tsv"))
+  write_tsv(out_sensitivity, paste0(ind_res_dir, "sens_MR_BMI-to-", mediator_file_name ,".tsv"))
+  print(paste0("Finished MR for ", mediator_file_name)) 
+}
+
+```
+
+
+### Saving individual traits into a merged table + subset to IVW only -- this will be used for plotting
+
+```{r}
+## save results for one category into one df
+
+# load all results files into a table to view together
+current_trait_category <- "md" ###CHANGE ME
+ind_res_dir <- paste0(results_path, current_trait_category)
+
+## MR results
+all.files_mr <- list.files(path = ind_res_dir, pattern = "MR_BMI-to-*", full.names = T)
+all.files_mr <- all.files_mr[!grepl('sens',all.files_mr)]
+
+l <- lapply(all.files_mr, fread)
+df <- l %>% reduce(rbind)
+write_tsv(df, paste0(results_path, current_trait_category, "/","merged_mr_BMI-to-", current_trait_category,".tsv"))
+
+
+## Sensitivity analysis results
+all.files_mr <- list.files(path = ind_res_dir, pattern = "sens_MR_BMI-to-*", full.names = T)
+
+l <- lapply(all.files_mr, fread)
+df <- l %>% reduce(rbind) 
+
+write_tsv(df, paste0(results_path, current_trait_category, "/merged_sens_mr_BMI-to-", current_trait_category,".tsv"))
+```
+
+
+# Plot results for each category
+
+
+```{r}
+current_trait_category <- "md"
+dat<- read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-", current_trait_category,".tsv")) %>% 
+      filter(method == "Inverse variance weighted") 
+dat %>% kable_it()
+
+pal<-c(unname(yarrr::piratepal("pony")))
+p<-ggplot(dat, aes(y=exposure, x=b, label=outcome, shape=exposure, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2)+
+  xlim(-1.2,0.5)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values = c(19,20)) +
+  geom_vline(xintercept=0, linetype=3,) +
+  theme_minimal_hgrid(10, rel_small = 1) +
+  facet_wrap(~outcome, ncol=1)+
+  labs(color = "",y = "", x = "Beta",
+       title= paste0("Univariate MR results for ", gsub("_", " ",current_trait_category) ,", 95% CI") )+
+  theme(legend.position = "none", plot.title.position  = "plot")
+
+ggsave(paste0("figures/BMI-to-",current_trait_category ,"_IVW.png"),
+       plot=p, scale=2, 
+       width=10, height=5,
+       units=c("cm"), dpi=200, limitsize=F)
+```
+
+
