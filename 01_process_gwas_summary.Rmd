@@ -168,13 +168,6 @@ for (current_trait in traits) {
   rm(gwas_outcome_format)
   rm(tophits)
   
-  # update lookup file
-  read_csv(data_lookup_file) %>% 
-    mutate(full_data = ifelse(trait == current_trait, paste0(data_name, tidy_gwas), full_data)) %>%
-    mutate(tophits_data = ifelse(trait == current_trait, paste0(data_name, tidy_tophits), tophits_data)) %>% 
-    mutate(format = ifelse(trait == current_trait, "tsv", format)) %>% 
-    write_csv(data_lookup_file)
-  print("Updated data lookup file")
 }                       
 ```
 
