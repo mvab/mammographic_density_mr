@@ -28,7 +28,7 @@ source("set_paths.R")
 set_paths(currently_working_env)
 
 # metafile
-data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
+data_lookup<-read_csv(paste0("metadata/data_lookup.csv"), show_col_types = FALSE) 
 
 # load functions
 source("functions.R")
@@ -44,105 +44,216 @@ source("functions.R")
 current_trait_category <- "md"
 outcomes <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(!is.na(full_data)) %>%  pull(trait_file_name) 
 
+md_instruments <- data_lookup %>% filter(trait_category == current_trait_category) %>% pull(tophits_data)
+md_snps<- bind_rows(lapply(paste0(data_path_tophits, md_instruments), read_tsv))
+
 ```
 
 
 
 ```{r}
 
-trait_name = "igf"
-trait_as_exp = data_lookup %>% filter(trait_file_name == trait_name) %>% pull(tophits_data)
-trait_as_exp <- read_tsv(paste0(data_path_tophits, trait_as_exp))
-trait_as_out = data_lookup %>% filter(trait_file_name == trait_name) %>% pull(full_data)
-trait_as_out <- vroom(paste0(data_path_gwas, trait_as_out))
+#trait_name = "igf"
+#trait_as_exp = data_lookup %>% filter(trait_file_name == trait_name) %>% pull(tophits_data)
+#trait_as_exp <- read_tsv(paste0(data_path_tophits, trait_as_exp))
+#
+#trait_as_out = data_lookup %>% filter(trait_file_name == trait_name) %>% pull(full_data)
+#trait_as_out <- vroom(paste0(data_path_gwas, trait_as_out))
 
 direction1 <-tibble()
-direction2 <-tibble()
 sens1 <-tibble()
+
+
+
+traits <- data_lookup %>%  filter(trait_category %in% c("hormones", "reproductive_traits")) %>% pull(trait_file_name)
+
+ ### direction 1 trait - MD
+for (trait_name in traits){
+  
+  
+   dat <- data_lookup %>% filter(trait_file_name == trait_name) 
+   
+   if (is.na(dat$mrbase.id)){ # text file data
+      trait_as_exp = dat %>% pull(tophits_data)
+      trait_as_exp <- read_tsv(paste0(data_path_tophits, trait_as_exp),  show_col_types = F)
+      
+  
+     } else { # mrbase data
+       
+      data_id = dat %>% pull(mrbase.id)
+      trait_as_exp <- extract_instruments(data_id) %>% clump_data()
+      
+     }
+     
+   
+   trait_ss <- dat %>% pull(sample_size)
+
+
+  for (out in outcomes){
+    
+    print(paste0("=========Doing ", trait_name, " against ", out))
+  
+    # read exposure and outcome
+    
+    exposure_dat <- trait_as_exp
+    
+    md_pheno_as_outcome <- data_lookup %>% 
+          filter(trait_file_name == out) %>%  filter(trait_category == current_trait_category) %>% pull(full_data)
+    outcome <- vroom(paste0(data_path_gwas, md_pheno_as_outcome), show_col_types = F)
+      
+    outcome_dat <- outcome %>% filter(SNP %in% exposure_dat$SNP)
+    
+    # harmonise
+    
+    harmonised <- harmonise_data(exposure_dat, outcome_dat )
+    
+    print(harmonised$exposure)
+    
+    # do steiger
+      
+    streiger =  calc_steiger(harmonised, exposure_ss = trait_ss, outcome_ss = 24192) 
+    #streiger$summary
+    
+    # do mr
+    res <- mr(harmonised, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) %>% 
+           split_outcome() %>% 
+           split_exposure() %>% 
+           generate_odds_ratios()
+    
+    direction1<- bind_rows(direction1, res)
+    
+    
+    # do sensitiviry
+    out_sensitivity<-
+      full_join(mr_pleiotropy_test(harmonised),
+                mr_heterogeneity(harmonised, method_list=c("mr_egger_regression", "mr_ivw"))) %>% 
+      select(-c("id.outcome", "id.exposure")) %>% filter(method=="Inverse variance weighted") %>% 
+      left_join(streiger$summary)
+  
+    sens1 <- bind_rows(sens1, out_sensitivity )
+  
+  }
+   }
+
+
+
+
+### direction 2 
+
+direction2 <-tibble()
 sens2 <-tibble()
 
-
 for (out in outcomes){
-  
-  ### direction 1 trait - MD
 
-  # read exposure and outcome
   
-  exposure_dat <- trait_as_exp
-  
-  md_pheno_as_outcome <- data_lookup %>% 
-        filter(trait_file_name == out) %>%  filter(trait_category == current_trait_category) %>% pull(full_data)
-  outcome <- vroom(paste0(data_path_gwas, md_pheno_as_outcome))
+  for (trait_name in traits){
     
-  outcome_dat <- outcome %>% filter(SNP %in% exposure_dat$SNP)
-  
-  # harmonise
-  
-  harmonised <- harmonise_data(exposure_dat, outcome_dat )
-  
-  # do steiger
+     print(paste0("=========Doing ", out, " against ", trait_name))
+
     
-  streiger =  calc_steiger(harmonised, exposure_ss = 246284, outcome_ss = 24192)
-  streiger$summary
-  
-  # do mr
-  res <- mr(harmonised, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) %>% 
-         split_outcome() %>% 
-         split_exposure() %>% 
-         generate_odds_ratios()
-  
-  direction1<- bind_rows(direction1, res)
-  
-  
-  # do sensitiviry
-  out_sensitivity<-
-    full_join(mr_pleiotropy_test(harmonised),
-              mr_heterogeneity(harmonised, method_list=c("mr_egger_regression", "mr_ivw"))) %>% 
-    select(-c("id.outcome", "id.exposure")) %>% filter(method=="Inverse variance weighted") %>% 
-    left_join(streiger$summary)
+     dat <- data_lookup %>% filter(trait_file_name == trait_name) 
+     
+     if (is.na(dat$mrbase.id)){ # text file data
 
-  sens1 <- bind_rows(sens1, out_sensitivity )
-
-
+      trait_as_out = dat %>% pull(full_data)
+      trait_as_out <- vroom(paste0(data_path_gwas, trait_as_out),  show_col_types = F)
   
-  ### direction 2 
-  
-  md_pheno_as_exposure <- data_lookup %>% 
-        filter(trait_file_name == out) %>%  filter(trait_category == current_trait_category) %>% pull(tophits_data)
+     } else { # mrbase data
+       
+      data_id = dat %>% pull(mrbase.id)
+      trait_as_out <- extract_outcome_data(snps = unique(md_snps$SNP), 
+                                              outcomes = data_id)
+     }
+     
+     trait_ss <- dat %>% pull(sample_size)
       
-  exposure_dat <- read_tsv(paste0(data_path_tophits, md_pheno_as_exposure))
-  
-  outcome <- trait_as_out
-  outcome_dat <- outcome %>% filter(SNP %in% exposure_dat$SNP)
-  
-  # harmonise
-  
-  harmonised <- harmonise_data(exposure_dat, outcome_dat )
-  
-  # do steiger
     
-  streiger =  calc_steiger(harmonised, exposure_ss = 24192, outcome_ss = 246284)
-  streiger$summary
+    md_pheno_as_exposure <- data_lookup %>% 
+          filter(trait_file_name == out) %>%  filter(trait_category == current_trait_category) %>% pull(tophits_data)
+        
+    exposure_dat <- read_tsv(paste0(data_path_tophits, md_pheno_as_exposure),  show_col_types = F)
+    
+    outcome <- trait_as_out
+    outcome_dat <- outcome %>% filter(SNP %in% exposure_dat$SNP)
+    
+    # harmonise
+    
+    harmonised <- harmonise_data(exposure_dat, outcome_dat )
+    
+    # do steiger
+      
+    streiger =  calc_steiger(harmonised, exposure_ss = 24192, outcome_ss = trait_ss)
+    streiger$summary
+    
+    # do mr
+    res <- mr(harmonised, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) %>% 
+           split_outcome() %>% 
+           split_exposure() %>% 
+           generate_odds_ratios()
+    
+    direction2<- bind_rows(direction2, res)
+    
+    
+    # do sensitiviry
+    out_sensitivity<-
+      full_join(mr_pleiotropy_test(harmonised),
+                mr_heterogeneity(harmonised, method_list=c("mr_egger_regression", "mr_ivw"))) %>% 
+      select(-c("id.outcome", "id.exposure"))   %>% filter(method=="Inverse variance weighted") %>% 
+      left_join(streiger$summary)    
+    
+    sens2 <- bind_rows(sens2, out_sensitivity )
   
-  # do mr
-  res <- mr(harmonised, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) %>% 
-         split_outcome() %>% 
-         split_exposure() %>% 
-         generate_odds_ratios()
-  direction2<- bind_rows(direction2, res)
-  
-  
-  # do sensitiviry
-  out_sensitivity<-
-    full_join(mr_pleiotropy_test(harmonised),
-              mr_heterogeneity(harmonised, method_list=c("mr_egger_regression", "mr_ivw"))) %>% 
-    select(-c("id.outcome", "id.exposure"))   %>% filter(method=="Inverse variance weighted") %>% 
-    left_join(streiger$summary)    
-  
-  sens2 <- bind_rows(sens2, out_sensitivity )
+  }
 
-}
+}  
+
+direction1$dir <- 1
+direction2$dir <- 2
+sens1$dir <- 1
+sens2$dir <- 2
+
+mr_results<- bind_rows(direction1, direction2) %>% distinct()
+sens_results<- bind_rows(sens1, sens2)
+
+write_tsv(mr_results, paste0("../02_Results/md_w_traits_biMR/","mr_results.tsv"))
+write_tsv(sens_results, paste0("../02_Results/md_w_traits_biMR/","mr_results_sens.tsv"))
+
 ```
+
+
+```{r}
+
+dat<- read_tsv(paste0("../02_Results/md_w_traits_biMR/","mr_results.tsv")) %>% 
+      filter(method == "Inverse variance weighted") %>% 
+      filter(dir == 2) %>% 
+      mutate(exposure = ifelse(exposure == "Age when periods started (menarche)", "Age at menarche (UKB)", exposure)) %>% 
+      mutate(beta_CI = paste0(round(b,2), " [",round(lo_ci,2) ,":",round(up_ci,2), "]")) %>% 
+      mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                                ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
+
+pal<-rev(c(unname(yarrr::piratepal("pony"))))[c(6,2,1)]
+p<-ggplot(dat, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2.5)+
+  #xlim(-1.2,0.5)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
+  geom_vline(xintercept=0, linetype=3) +
+  geom_text(aes(label=beta_CI),hjust=-0.1, vjust=-0.6, size =3, color = '#333232')+
+  theme_minimal_hgrid(10, rel_small = 1) +
+  facet_wrap(~outcome, ncol=1)+
+  scale_y_discrete(position = "right")+
+  labs(color = "",y = "", x = "Beta",
+       #title= paste0("Univariate MR, 95% CI; direction 1: MD -> trait") )+
+      title= paste0("Univariate MR, 95% CI; direction 2: trait -> MD") )+
+  theme(legend.position = "none", plot.title.position  = "plot")
+
+#ggsave(paste0("figures/BMI-to-",current_trait_category ,"_IVW.png"),
+#       plot=p, scale=2, 
+#       width=10, height=5,
+#       units=c("cm"), dpi=200, limitsize=F)
+```
+
 
 
 
