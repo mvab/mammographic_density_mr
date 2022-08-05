@@ -1,0 +1,214 @@
+---
+title: " "
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(vroom)
+
+library(tidyr)
+library(purrr)
+library(tibble)
+library(dplyr)
+
+library(TwoSampleMR)
+library(MVMR)
+```
+
+```{r message=F}
+# set path for pre-calculated data, outside the code repo
+# `local` / `remote` (reading data from RDSF)
+currently_working_env = "local"
+source("set_paths.R")
+set_paths(currently_working_env)
+
+# metafile
+data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
+#phenocor_matrix<-read_tsv(paste0("metadata/pheno_correlations.tsv")) 
+bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) 
+
+# load functions
+source("functions_mvmr.R")
+source("functions.R")
+
+```
+
+
+```{r}
+da_new <- read_tsv(paste0(data_path_tophits, "dense_area_tophits.tsv")) %>% 
+         filter(!SNP %in% c(#"rs10995181","rs3821098", "rs75197674",
+                            "rs11205303", "rs11684853","rs17625845",
+                            "rs6001984"
+                            #"rs492602"
+                            )) # exluding SNPs from other dir cluster
+```
+
+
+```{r}
+# uni MR
+
+out <- extract_outcome_data(snps = da_new$SNP, outcome = "ieu-a-1126")
+harmonised_new<- harmonise_data(exposure_dat = da_new, outcome_dat = out)
+
+res_new <- mr(harmonised_new) %>% 
+  split_outcome() %>% 
+  generate_odds_ratios()
+res_new
+het_new<- mr_heterogeneity(harmonised_new)
+egger_int_new <- mr_pleiotropy_test(harmonised_new)
+
+
+#> Analysing 'ieu-a-2' on 'ieu-a-7'
+p1_new <- mr_scatter_plot(res_new, harmonised_new)
+
+res_single_new <- mr_singlesnp(harmonised_new, all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression","mr_weighted_median","mr_weighted_mode"))%>% 
+  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
+p2_new <- mr_forest_plot(res_single_new)
+```
+
+
+```{r}
+quick_mr <- function(exp_dat){
+  
+  out <- extract_outcome_data(
+    snps = exp_dat$SNP,
+    outcome = "ieu-a-1126")
+  
+  harmonised<- harmonise_data(exposure_dat = exp_dat, 
+                              outcome_dat = out)
+  
+  res_early <- TwoSampleMR::mr(harmonised, method_list = c('mr_ivw')) %>% 
+    split_outcome() %>% 
+    split_exposure() %>% 
+    generate_odds_ratios() %>% 
+    select(exposure, outcome, or,  or_lci95 , or_uci95, nsnp)
+  
+}
+
+```
+
+
+```{r}
+# mvmr
+
+gwas1 <-  vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/dense_area_GWAS_tidy_outcome.txt.gz")
+gwas2 <-  vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/adult_bmi_cont_ukb_GWAS_tidy_outcome.txt.gz")
+full_gwas_list <- list(gwas1, gwas2)
+
+
+
+instruments1 <- da_new
+
+adult_bmi_ukb_exp <- read_tsv("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tophits/adult_bmi_cont_ukb_tophits.tsv") # simply all (132 will be 37 instr in DA)
+
+adult_bmi_inst <- read_tsv("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tophits/adult_bmi_cont_ukb_tophits_from_body_size_hits.tsv") # 79
+
+length(intersect(adult_bmi_inst$SNP, gwas1$SNP))
+
+# select which instuments to test on  --- details in adult_bmi_snps_testing.R
+instruments2 <- adult_bmi_ukb_exp
+# or 
+
+instruments2_list <- list()
+instruments2_list_res <- list()
+for (i in 1:10){
+  set.seed(i)
+  instruments2 <-  sample_n(adul_bmi_inst, 30) # pick 30 at random from list of 79
+  instruments2_list[[i]] <- instruments2
+  out<-quick_mr(instruments2) 
+  instruments2_list_res[[i]] <- out
+}
+
+instruments2_list_res_df <- bind_rows(instruments2_list_res)
+
+instruments2 <-  sample_n(adul_bmi_inst, 30) # pick 30 at random from list of 79
+out<-quick_mr(instruments2) 
+out
+
+instruments2 <- instruments2_list[[3]]
+
+length(intersect(instruments2$SNP, gwas1$SNP))
+
+exposure_list <- list(instruments1, instruments2)
+
+
+```
+
+```{r}
+
+run_mvmr <- function(gwas1, gwas2, instruments1, instruments2){
+  full_gwas_list <- list(gwas1, gwas2)
+  exposure_list <- list(instruments1, instruments2)
+
+  
+  # create exposure_dat format
+  exposure_dat <- get_mv_exposures(exposure_list, full_gwas_list, clump_exposures = T) 
+  
+  #Next, also extract those SNPs from the outcome.
+  outcome_dat <- extract_outcome_data(exposure_dat$SNP, 'ieu-a-1126')
+  
+  #Once the data has been obtained, harmonise so that all are on the same reference allele.
+  mvdat <- mv_harmonise_data(exposure_dat, outcome_dat)
+  
+  #Finally, perform the multivariable MR analysis
+  res <- mv_multiple(mvdat)
+  
+  mv_res<- res$result %>%
+    split_outcome() %>% 
+    separate(outcome, "outcome", sep="[(]") %>% 
+    generate_odds_ratios() %>% 
+    select(-id.exposure, -id.outcome, -se, lo_ci, up_ci)
+  
+  
+  ### mvmr sensitivity
+
+  mvmr_input <- make_mvmr_input(exposure_dat, outcome.id.mrbase='ieu-a-1126')
+  
+  # format data to be in MVMR package-compatiable df
+  mvmr_out <- format_mvmr(BXGs = mvmr_input$XGs %>% select(contains("beta")),  # exposure betas
+                          BYG = mvmr_input$YG$beta.outcome,                        # outcome beta
+                          seBXGs = mvmr_input$XGs %>% select(contains("se")),      # exposure SEs
+                          seBYG = mvmr_input$YG$se.outcome,                        # outcome SEs
+                          RSID = mvmr_input$XGs$SNP)                               # SNPs
+  
+  #  estimate causal effects using method in MVMR package
+  mvmr_res <-ivw_mvmr(r_input=mvmr_out) %>% 
+    tidy_mvmr_output() %>% 
+    mutate(exposure = mvmr_input$exposures,
+           outcome = 'ieu-a-1126')
+  
+  #Test for weak instruments
+  sres <- strength_mvmr(r_input=mvmr_out, gencov=0)
+  
+  #Test for horizontal pleiotropy
+  pres <- pleiotropy_mvmr(r_input=mvmr_out, gencov=0)
+  
+  mvmr_sens_df <- sres
+  mvmr_sens_df$Qstat <- pres$Qstat
+  mvmr_sens_df$Qpval <- pres$Qpval
+  
+  
+  mv_res <- cbind(mv_res,mvmr_sens_df)
+}
+
+
+mvmr_results <- list()
+
+for (i in 1:length(instruments2_list)) {
+  print(i)
+  mvmr_results[[i]] <- run_mvmr(gwas1=gwas1, gwas2=gwas2, instruments1=instruments1, instruments2 =instruments2_list[[i]] ) %>% mutate(n=i)
+}
+View(mvmr_results)
+
+mvmr_results_df<-bind_rows(mvmr_results)
+
+```
+
+```{r}
+
+
+
+```
+

@@ -20,19 +20,6 @@ library(TwoSampleMR)
 library(ggplot2)
 library(cowplot)
 library(wesanderson)
-
-
-library(epigraphdb)
-#  function that will export query result as a table
-query_epigraphdb_as_table <- function(query){
-  results_subset <- query_epigraphdb(
-    route = "/cypher",
-    params = list(query = query),
-    method = "POST",
-    mode = "table")
-}
-
-
 ```
 
 ```{r}
@@ -129,7 +116,7 @@ mr_results2 <- mr(harmonised2) %>%  generate_odds_ratios() # 1.090252 1.0407233 
 ```{r}
 # MR clust
 library(mrclust)
-browseVignettes("mrclust")
+#browseVignettes("mrclust")
 #https://github.com/lindgrengroup/obesity_femrepr_MR/blob/9e39114e2d16bf39adc76040cbb6cff588bbb3dc/clustering/SNP_clustering.R
 
 
@@ -145,8 +132,8 @@ dim(res_single)
 dim(harmonised)
 harmonised_sub <- harmonised %>%  select("SNP", "exposure", "outcome",
                                        "beta.exposure", "se.exposure",
-                                       "beta.outcome", "se.outcome")
-cluster_data <- left_join(harmonised_sub, res_single)
+                                       "beta.outcome", "se.outcome") 
+cluster_data <- left_join(harmonised_sub, res_single) %>% drop_na()
 
 
 

@@ -39,13 +39,8 @@ source("functions.R")
 
 ```{r}
 da_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_DA_sieh_tophits.tsv"), show_col_types = FALSE) #16
-nda_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_NDA_sieh_tophits.tsv")) # 11
-pd_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_PD_sieh_tophits.tsv")) # 10
-                   
-
+                
 da_new <- read_tsv(paste0(data_path_tophits, "dense_area_tophits.tsv")) # 25
-nda_new <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits.tsv")) # 16
-pd_new <- read_tsv(paste0(data_path_tophits, "percent_density_tophits.tsv")) # 16
 
 ```
 
@@ -54,6 +49,8 @@ pd_new <- read_tsv(paste0(data_path_tophits, "percent_density_tophits.tsv")) # 1
 
 out <- extract_outcome_data(snps = da_new$SNP, outcome = "ieu-a-1126")
 harmonised_new<- harmonise_data(exposure_dat = da_new, outcome_dat = out)
+harmonised_new %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
+
 
 res_new <- mr(harmonised_new) %>% 
   split_outcome() %>% 
@@ -63,7 +60,6 @@ het_new<- mr_heterogeneity(harmonised_new)
 egger_int_new <- mr_pleiotropy_test(harmonised_new)
 
 
-res <- mr(harmonised_new)
 #> Analysing 'ieu-a-2' on 'ieu-a-7'
 p1_new <- mr_scatter_plot(res_new, harmonised_new)
 
@@ -361,7 +357,7 @@ mr_results2 <- mr(harmonised_old2) %>%  generate_odds_ratios()
 ```{r}
 # MR clust
 library(mrclust)
-browseVignettes("mrclust")
+#browseVignettes("mrclust")
 #https://github.com/lindgrengroup/obesity_femrepr_MR/blob/9e39114e2d16bf39adc76040cbb6cff588bbb3dc/clustering/SNP_clustering.R
 
 
@@ -504,9 +500,250 @@ for (cluster in names(clust_snp_list)){
 
 out_old <- bind_rows(mr_cluster_list)
 
+```
+
+```{r}
+#phenoscanner
+library(phenoscanner)
+library(ieugwasr)
+
+get_pheno_assoc <- function(snp){
+
+  # query phenoscanner
+  res <- phenoscanner(snpquery=snp)
+  phenosc <- res$results 
+  
+  if (nrow(phenosc) > 0){
+    phenosc<- phenosc %>%  as.data.frame() %>% 
+      filter(p <= 5e-8) %>% arrange(p) %>% pull(trait) %>% unique()
+  } else {  phenosc<-c() } # in case no res
+  
+  # query opengwas
+  phwnogw<- phewas(variants=snp, pval=5e-8) 
+  if (nrow(phwnogw) > 0){
+      phwnogw <- phwnogw %>%  as.data.frame()  %>% 
+        arrange(p) %>% pull(trait) %>% unique()
+  } else {  phwnogw<-c() }  # in case no res
+    
+  out <- unique(c(phenosc, phwnogw))
+    
+}
+
+xx <- get_pheno_assoc(snp="rs11877925")
+
+# snps: 
+snp_df<- unlist(clust_snp_list) %>% as_data_frame()
+
+
+snp_phewas <- lapply(snp_df$value, get_pheno_assoc )
+names(snp_phewas) <- snp_df$value
+
+
+save(snp_phewas, file="../02_Results/cluster_phewas.RData")
+
+View(snp_phewas[["rs11205303"]])
+
+```
+
+
+
+
+
+
+
+
+```{r}
+# load SNP to gene mapping (collected from different sources)
+DA_snps_to_genes <- read_csv("../DA_snp_to_gene.csv")
+cluster1_genes <- DA_snps_to_genes %>% filter(CLUSTER==1) %>% pull(final)
+cluster2_genes <- DA_snps_to_genes %>% filter(CLUSTER==2) %>% pull(final)
+cluster3_genes <- DA_snps_to_genes %>% filter(CLUSTER==3) %>% pull(final)
+```
+
+
+
+```{r, message=F}
+library(enrichR)
+alldbs<-listEnrichrDbs()
+pathway_dbs <- c("Reactome_2016", "KEGG_2021_Human", "Enrichr_Users_Contributed_Lists_2020")
+
+## function to call enrich fro pathways
+enrich_dbs<-function(gene_list, dbs, adjpval_filter = 0.05){
+  
+  enriched <- enrichr(gene_list, dbs)
+  # flatten list into a table; handle empty tables
+  for (db_name in names(enriched)){
+    if( dim(enriched[[db_name]])[1] > 0){
+      enriched[[db_name]]$db <- db_name
+    } else  {
+      # if it's empty, delete it
+      enriched[[db_name]] <- NULL
+    }
+  }
+  enriched_df<-bind_rows(enriched)
+  if (dim(enriched_df)[1] > 0){
+    enriched_df<- enriched_df %>%
+      filter(Adjusted.P.value < adjpval_filter) %>% 
+      separate(Overlap, into = c("found_genes", "total_genes"), sep="/", remove = F)%>% 
+      arrange(Odds.Ratio)
+  } else{
+    enriched_df<-data.frame()
+  }
+}
+kable_it<-function(df){
+  library(kableExtra)
+  df %>% 
+    kable(.) %>%
+    kable_paper("hover", full_width = F)
+}
 
 
 ```
 
 
+<br>
+
+### Pathways enrichment analysis
+
+```{r}
+enriched_df<-enrich_dbs(cluster3_genes, pathway_dbs)
+enriched_df_wo_db<-enriched_df %>% select(-db) %>% distinct()
+plotEnrich(enriched_df_wo_db, showTerms = 20, numChar = 50, y = "Count", orderBy = "P.value")
+```
+
+Table sorted by odds ratio:
+```{r , echo=F}
+numChar=30
+enriched_df %>% 
+  select(Term, Overlap, 'P.value','Adjusted.P.value', 'Odds.Ratio', Genes, db) %>% 
+  arrange(desc(Odds.Ratio)) %>% 
+  mutate(Term = paste(substr(Term, 1, numChar), ifelse(nchar(Term) > numChar, "...", ""), sep = ""),
+         Odds.Ratio = round(Odds.Ratio, digits=1), 
+         P.value= scales::scientific(P.value, digits = 2),
+         Adjusted.P.value= scales::scientific(Adjusted.P.value, digits = 2)) %>% 
+  rename(Adj.P.value= Adjusted.P.value) %>% 
+  kable_it()
+```
+
+
+#### Enrichment GWAS-eQTL genes in pathways, using g:Profiler
+```{r}
+library(gprofiler2)
+gostres <- gost(query = cluster3_genes,
+                organism = "hsapiens")
+p <- gostplot(gostres, capped = FALSE, interactive = T)
+p
+```
+
+g:Profiler resulr as a table:
+```{r}
+# recall = intersection_size/term_size
+gostres$result %>% arrange(-recall) %>% 
+  select("source", "term_name",p_value,  "term_size", "intersection_size", recall) %>% 
+  mutate(recall=round(recall,2),
+         p_value= scales::scientific(p_value, digits = 2)) %>% 
+  kable_it()
+```
+
+
+
+
+
+
+
+```{r}
+# check association with BMI
+
+# UKB
+adult_bmi_ukb_gwas <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/adult_bmi_cont_ukb_GWAS_tidy_outcome.txt.gz")
+# GIANT
+out <- extract_outcome_data(snps = da_new$SNP, outcome = "ieu-a-974")
+
+
+harmonised_bmi<- harmonise_data(exposure_dat = da_new, outcome_dat = adult_bmi_ukb_gwas)
+
+
+harmonised_bmi %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
+
+
+res_bmi <- mr(harmonised_bmi) %>% 
+  split_outcome() %>% 
+  generate_odds_ratios()
+
+het_bmi<- mr_heterogeneity(harmonised_bmi)
+egger_int_bmi <- mr_pleiotropy_test(harmonised_bmi)
+
+
+#> Analysing 'ieu-a-2' on 'ieu-a-7'
+p1_bmi <- mr_scatter_plot(res_bmi, harmonised_bmi)
+
+res_single_bmi <- mr_singlesnp(harmonised_bmi, all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression","mr_weighted_median","mr_weighted_mode"))%>% 
+  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
+p2_bmi <- mr_forest_plot(res_single_bmi)
+
+
+res_loo <- mr_leaveoneout(harmonised_bmi)
+p3_bmi <- mr_leaveoneout_plot(res_loo)
+
+
+# check fat/fat free mass
+
+# UKB
+fatmass_gwas <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/fat_mass_GWAS_tidy_outcome.txt.gz")
+
+harmonised_fatmass<- harmonise_data(exposure_dat = da_new, outcome_dat = fatmass_gwas)
+harmonised_fatmass %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
+
+res_single <- mr_singlesnp(harmonised_fatmass, all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression","mr_weighted_median","mr_weighted_mode"))%>% 
+  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
+p2fat <- mr_forest_plot(res_single)
+
+
+fatfreemass_gwas <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/fatfree_mass_GWAS_tidy_outcome.txt.gz")
+
+harmonised_fatfreemass<- harmonise_data(exposure_dat = da_new, outcome_dat = fatfreemass_gwas)
+harmonised_fatfreemass %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
+res_single <- mr_singlesnp(harmonised_fatfreemass, all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression","mr_weighted_median","mr_weighted_mode"))%>% 
+  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
+p2fatfree <- mr_forest_plot(res_single)
+
+
+
+
+```
+
+```{r}
+#MR without SNPs associted with BC
+
+out <- extract_outcome_data(snps = da_new$SNP, outcome = "ieu-a-1126") %>% filter(pval.outcome>5e-08) # remove SNPs that are associted with BC
+
+da_new_wo_bc <- da_new %>% filter(SNP %in% out$SNP) # only keeping SNPs not associated with BC
+
+
+out <- extract_outcome_data(snps = da_new_wo_bc$SNP, outcome = "ieu-a-1126")
+harmonised_new<- harmonise_data(exposure_dat = da_new_wo_bc, outcome_dat = out)
+harmonised_new %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
+
+
+res_new <- mr(harmonised_new) %>% 
+  split_outcome() %>% 
+  generate_odds_ratios() # 1.385758 1.2366010 1.552906
+
+het_new<- mr_heterogeneity(harmonised_new) #47.66042   14 1.495993e-05
+egger_int_new <- mr_pleiotropy_test(harmonised_new) #  -0.0009239941 
+
+
+
+#> Analysing 'ieu-a-2' on 'ieu-a-7'
+p1_new <- mr_scatter_plot(res_new, harmonised_new)
+
+res_single_new <- mr_singlesnp(harmonised_new, all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression","mr_weighted_median","mr_weighted_mode"))%>% 
+  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
+p2_new <- mr_forest_plot(res_single_new)
+
+
+res_loo <- mr_leaveoneout(harmonised_new)
+p3_new <- mr_leaveoneout_plot(res_loo)
+
+```
 
