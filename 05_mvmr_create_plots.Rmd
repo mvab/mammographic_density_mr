@@ -15,14 +15,6 @@ library(tidyr)
 library(TwoSampleMR)
 library(wesanderson)
 knitr::opts_chunk$set(echo = TRUE)
-
-
-
-
-
-
-
-
 ```
 
 ```{r message=F}
@@ -41,7 +33,7 @@ source("functions.R")
 ```{r}
 # specify category and palette to use
 
-current_trait_category <- "md_sub"
+current_trait_category <- "md_wo_outliers"
 pal<-c(unname(yarrr::piratepal("pony")))
 ```
 
@@ -96,8 +88,8 @@ pp<-ggplot(dat_BMI, aes(y=reorder(direct, -or), x=or, label=outcome, colour=text
   geom_vline(xintercept=0.6632422, linetype=2, colour = "steelblue") + # cBMI total effect
   geom_vline(xintercept=1, linetype='longdash') +
   theme_minimal_hgrid(10) +
-  scale_color_manual(values=c("tomato",  "steelblue"))+# old
-  #scale_color_manual(values=c("tomato",  "orange","steelblue"))+ # with MD
+  #scale_color_manual(values=c("tomato",  "steelblue"))+# old
+  scale_color_manual(values=c("tomato",  "orange","steelblue"))+ # with MD
   scale_y_discrete(position = "right")+
   theme(strip.text = element_text(face = 'bold'))+
   facet_grid(~outcome, scale="free", switch="x")+
@@ -110,10 +102,10 @@ pp<-ggplot(dat_BMI, aes(y=reorder(direct, -or), x=or, label=outcome, colour=text
 
 ```{r message=F}
 
-dat <- read_tsv( paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-md_sub-to-BCAC.tsv")) %>% 
-  mutate(mediator = case_when(mediator=="dense_area" ~ "MD dense area",
-                              mediator=="nondense_area" ~ "MD non-dense area",
-                              mediator=="percent_density" ~ "MD percent density")) %>% 
+dat <- read_tsv( paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_adultBMIearlyBMI-",current_trait_category,"-to-BCAC.tsv")) %>% 
+  mutate(mediator = case_when(grepl("nondense_area", mediator) ~ "MD non-dense area + adult BMI unadj",
+                              grepl("dense_area", mediator) ~ "MD dense area + adult BMI unadj",
+                              grepl("percent_density", mediator) ~ "MD percent density + adult BMI unadj")) %>% 
   filter(outcome == "Breast cancer") %>% 
   filter(exposure == "Childhood body size") %>% 
   mutate(direct = paste0(exposure, " accounted for ", mediator)) %>% 

@@ -21,28 +21,23 @@ library(MVMR)
 # set path for pre-calculated data, outside the code repo
 # `local` / `remote` (reading data from RDSF)
 currently_working_env = "local"
-source("set_paths.R")
+source("../set_paths.R")
 set_paths(currently_working_env)
 
 # metafile
-data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
+data_lookup<-read_csv(paste0("../metadata/data_lookup.csv")) 
 #phenocor_matrix<-read_tsv(paste0("metadata/pheno_correlations.tsv")) 
-bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) 
+bcac_lookup<-read_csv(paste0("../metadata/data_lookup_BCAC.csv")) 
 
 # load functions
-source("functions_mvmr.R")
-source("functions.R")
+source("../functions_mvmr.R")
+source("../functions.R")
 
 ```
 
 
 ```{r}
-da_new <- read_tsv(paste0(data_path_tophits, "dense_area_tophits.tsv")) %>% 
-         filter(!SNP %in% c(#"rs10995181","rs3821098", "rs75197674",
-                            "rs11205303", "rs11684853","rs17625845",
-                            "rs6001984"
-                            #"rs492602"
-                            )) # exluding SNPs from other dir cluster
+da_new <- read_tsv(paste0(data_path_tophits, "dense_area_tophits_wo_out.tsv")) 
 ```
 
 
@@ -115,7 +110,7 @@ instruments2_list <- list()
 instruments2_list_res <- list()
 for (i in 1:10){
   set.seed(i)
-  instruments2 <-  sample_n(adul_bmi_inst, 30) # pick 30 at random from list of 79
+  instruments2 <-  sample_n(adult_bmi_inst, 30) # pick 30 at random from list of 79
   instruments2_list[[i]] <- instruments2
   out<-quick_mr(instruments2) 
   instruments2_list_res[[i]] <- out
@@ -123,7 +118,7 @@ for (i in 1:10){
 
 instruments2_list_res_df <- bind_rows(instruments2_list_res)
 
-instruments2 <-  sample_n(adul_bmi_inst, 30) # pick 30 at random from list of 79
+instruments2 <-  sample_n(adult_bmi_inst, 30) # pick 30 at random from list of 79
 out<-quick_mr(instruments2) 
 out
 
@@ -203,6 +198,13 @@ for (i in 1:length(instruments2_list)) {
 View(mvmr_results)
 
 mvmr_results_df<-bind_rows(mvmr_results)
+
+
+# can pick any, going to pick3, then 6
+
+adultbmi_snps_subset <- instruments2_list[[6]]
+write_tsv(adultbmi_snps_subset, paste0(data_path_tophits, "adult_bmi_cont_ukb_tophits_adj_subset.tsv"))
+
 
 ```
 
