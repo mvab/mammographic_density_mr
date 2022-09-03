@@ -38,21 +38,21 @@ source("../functions.R")
 
 
 ```{r}
-nda_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_NDA_sieh_tophits.tsv")) 
-nrow(nda_old) #
+pd_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_PD_sieh_tophits.tsv")) 
+nrow(pd_old) # 10
 
-nda_new <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits.tsv")) 
-nrow(nda_new) #16
+pd_new <- read_tsv(paste0(data_path_tophits, "percent_density_tophits.tsv")) 
+nrow(pd_new) #16
 
-length(intersect(nda_old$SNP, nda_new$SNP)) # 11
+length(intersect(pd_old$SNP, pd_new$SNP)) # 9
 
 ```
 
 ```{r}
-# NDA -new
+# PD -new
 
-out <- extract_outcome_data(snps = nda_new$SNP, outcome = "ieu-a-1126")
-harmonised_new<- harmonise_data(exposure_dat = nda_new, outcome_dat = out)
+out <- extract_outcome_data(snps = pd_new$SNP, outcome = "ieu-a-1126")
+harmonised_new<- harmonise_data(exposure_dat = pd_new, outcome_dat = out)
 harmonised_new %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
 
 
@@ -76,21 +76,15 @@ res_loo <- mr_leaveoneout(harmonised_new)
 p3_new <- mr_leaveoneout_plot(res_loo)
 
 
-# without one outlir
-
-harmonised_new2 <- harmonised_new %>% filter(SNP != "rs7816345")
-res_new2 <- mr(harmonised_new2) %>% 
-  split_outcome() %>% 
-  generate_odds_ratios()
 
 
 ```
 
 ```{r}
-# DA - old
+# PD - old
 
-out <- extract_outcome_data(snps = nda_old$SNP, outcome = "ieu-a-1126")
-harmonised_old<- harmonise_data(exposure_dat = nda_old, outcome_dat = out)
+out <- extract_outcome_data(snps = pd_old$SNP, outcome = "ieu-a-1126")
+harmonised_old<- harmonise_data(exposure_dat = pd_old, outcome_dat = out)
 
 res_old <- mr(harmonised_old) %>% 
   split_outcome() %>% 
@@ -223,10 +217,10 @@ r_func <- function(x, logistic.exposure,logistic.outcome ){
  ### MR Steiger test of directionality
 #https://mrcieu.github.io/TwoSampleMR/articles/perform_mr.html#mr-steiger-directionality-test     ###### VIEW THIS
 
-  bc_out <- extract_outcome_data(snps = nda_new$SNP, outcome = "ieu-a-1126")
+  bc_out <- extract_outcome_data(snps = pd_new$SNP, outcome = "ieu-a-1126")
 
   # harmonising
-  exp_out <- harmonise_data(exposure_dat = nda_new, outcome_dat = out)
+  exp_out <- harmonise_data(exposure_dat = pd_new, outcome_dat = out)
   exp_out$samplesize.exposure <- 24192
   exp_out$samplesize.outcome <- 228951 
   exp_out$ncase.outcome = 122977
@@ -244,10 +238,10 @@ r_func <- function(x, logistic.exposure,logistic.outcome ){
  #         r_exp = exp_out$beta.exposure, r_out = exp_out$beta.outcome, # these 2 can be 0?
  #         r_xxo = 1, r_yyo = 1)
  #
-  bc_out <- extract_outcome_data(snps = nda_old$SNP, outcome = "ieu-a-1126")
+  bc_out <- extract_outcome_data(snps = pd_old$SNP, outcome = "ieu-a-1126")
 
   # harmonising
-  exp_out <- harmonise_data(exposure_dat = nda_old, outcome_dat = out)
+  exp_out <- harmonise_data(exposure_dat = pd_old, outcome_dat = out)
   exp_out$samplesize.exposure <- 24192
   exp_out$samplesize.outcome <- 228951 
   exp_out$ncase.outcome = 122977
@@ -385,7 +379,7 @@ clusters_new
 head(clusters_new$cluster_membership$cluster_1)
 
 clust_plot_best_new = cluster_results_new$plots$two_stage +
-  ggplot2::xlab("Genetic association with NDA") +
+  ggplot2::xlab("Genetic association with PD") +
   ggplot2::ylab("Genetic association with BC") +
   ggplot2::ggtitle("")
 clust_plot_best_new
@@ -476,7 +470,7 @@ clusters_old
 head(cluster_results_old$cluster_membership$cluster_1)
 
 clust_plot_best_old = cluster_results_old$plots$two_stage +
-  ggplot2::xlab("Genetic association with NDA") +
+  ggplot2::xlab("Genetic association with PD") +
   ggplot2::ylab("Genetic association with BC") +
   ggplot2::ggtitle("")
 clust_plot_best_old
@@ -554,7 +548,7 @@ snp_phewas <- lapply(snp_df$value, get_pheno_assoc )
 names(snp_phewas) <- snp_df$value
 
 
-save(snp_phewas, file="../../02_Results/cluster_phewas_NDA.RData")
+save(snp_phewas, file="../../02_Results/cluster_phewas_PD.RData")
 
 View(snp_phewas[["rs11205303"]])
 
@@ -569,10 +563,10 @@ View(snp_phewas[["rs11205303"]])
 
 ```{r}
 # load SNP to gene mapping (collected from different sources)
-DA_snps_to_genes <- read_csv("../DA_snp_to_gene.csv")
-cluster1_genes <- DA_snps_to_genes %>% filter(CLUSTER==1) %>% pull(final)
-cluster2_genes <- DA_snps_to_genes %>% filter(CLUSTER==2) %>% pull(final)
-cluster3_genes <- DA_snps_to_genes %>% filter(CLUSTER==3) %>% pull(final)
+PD_snps_to_genes <- read_csv("../PD_snp_to_gene.csv")
+cluster1_genes <- PD_snps_to_genes %>% filter(CLUSTER==1) %>% pull(final)
+cluster2_genes <- PD_snps_to_genes %>% filter(CLUSTER==2) %>% pull(final)
+cluster3_genes <- PD_snps_to_genes %>% filter(CLUSTER==3) %>% pull(final)
 ```
 
 
@@ -672,10 +666,10 @@ gostres$result %>% arrange(-recall) %>%
 # UKB
 adult_bmi_ukb_gwas <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/adult_bmi_cont_ukb_GWAS_tidy_outcome.txt.gz")
 # GIANT
-out <- extract_outcome_data(snps = nda_new$SNP, outcome = "ieu-a-974")
+out <- extract_outcome_data(snps = pd_new$SNP, outcome = "ieu-a-974")
 
 
-harmonised_bmi<- harmonise_data(exposure_dat = nda_new, outcome_dat = adult_bmi_ukb_gwas)
+harmonised_bmi<- harmonise_data(exposure_dat = pd_new, outcome_dat = adult_bmi_ukb_gwas)
 
 
 harmonised_bmi %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
@@ -708,7 +702,7 @@ p3_bmi <- mr_leaveoneout_plot(res_loo)
 # UKB
 fatmass_gwas <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/fat_mass_GWAS_tidy_outcome.txt.gz")
 
-harmonised_fatmass<- harmonise_data(exposure_dat = nda_new, outcome_dat = fatmass_gwas)
+harmonised_fatmass<- harmonise_data(exposure_dat = pd_new, outcome_dat = fatmass_gwas)
 harmonised_fatmass %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
 
 res_single <- mr_singlesnp(harmonised_fatmass, all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression","mr_weighted_median","mr_weighted_mode"))%>% 
@@ -718,7 +712,7 @@ p2fat <- mr_forest_plot(res_single)
 
 fatfreemass_gwas <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/fatfree_mass_GWAS_tidy_outcome.txt.gz")
 
-harmonised_fatfreemass<- harmonise_data(exposure_dat = nda_new, outcome_dat = fatfreemass_gwas)
+harmonised_fatfreemass<- harmonise_data(exposure_dat = pd_new, outcome_dat = fatfreemass_gwas)
 harmonised_fatfreemass %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
 res_single <- mr_singlesnp(harmonised_fatfreemass, all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression","mr_weighted_median","mr_weighted_mode"))%>% 
   mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
@@ -732,13 +726,13 @@ p2fatfree <- mr_forest_plot(res_single)
 ```{r}
 #MR without SNPs associted with BC
 
-out <- extract_outcome_data(snps = nda_new$SNP, outcome = "ieu-a-1126") %>% filter(pval.outcome>5e-08) # remove SNPs that are associted with BC
+out <- extract_outcome_data(snps = pd_new$SNP, outcome = "ieu-a-1126") %>% filter(pval.outcome>5e-08) # remove SNPs that are associted with BC
 
-nda_new_wo_bc <- nda_new %>% filter(SNP %in% out$SNP) # only keeping SNPs not associated with BC
+pd_new_wo_bc <- pd_new %>% filter(SNP %in% out$SNP) # only keeping SNPs not associated with BC
 
 
-out <- extract_outcome_data(snps = nda_new_wo_bc$SNP, outcome = "ieu-a-1126")
-harmonised_new<- harmonise_data(exposure_dat = nda_new_wo_bc, outcome_dat = out)
+out <- extract_outcome_data(snps = pd_new_wo_bc$SNP, outcome = "ieu-a-1126")
+harmonised_new<- harmonise_data(exposure_dat = pd_new_wo_bc, outcome_dat = out)
 harmonised_new %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
 
 
