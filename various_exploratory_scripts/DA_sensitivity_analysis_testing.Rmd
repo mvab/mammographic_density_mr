@@ -25,15 +25,15 @@ library(wesanderson)
 # set path for pre-calculated data, outside the code repo
 # `local` / `remote` (reading data from RDSF)
 currently_working_env = "local"
-source("set_paths.R")
+source("../set_paths.R")
 set_paths(currently_working_env)
 
 # metafile
-data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
-bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) 
+data_lookup<-read_csv(paste0("../metadata/data_lookup.csv")) 
+bcac_lookup<-read_csv(paste0("../metadata/data_lookup_BCAC.csv")) 
 
 # load functions
-source("functions.R")
+source("../functions.R")
 ```
 
 
@@ -554,7 +554,7 @@ View(snp_phewas[["rs11205303"]])
 
 ```{r}
 # load SNP to gene mapping (collected from different sources)
-DA_snps_to_genes <- read_csv("../DA_snp_to_gene.csv")
+DA_snps_to_genes <- read_csv("../../genes/DA_snp_to_gene.csv")
 cluster1_genes <- DA_snps_to_genes %>% filter(CLUSTER==1) %>% pull(final)
 cluster2_genes <- DA_snps_to_genes %>% filter(CLUSTER==2) %>% pull(final)
 cluster3_genes <- DA_snps_to_genes %>% filter(CLUSTER==3) %>% pull(final)
@@ -565,7 +565,9 @@ cluster3_genes <- DA_snps_to_genes %>% filter(CLUSTER==3) %>% pull(final)
 ```{r, message=F}
 library(enrichR)
 alldbs<-listEnrichrDbs()
-pathway_dbs <- c("Reactome_2016", "KEGG_2021_Human", "Enrichr_Users_Contributed_Lists_2020")
+pathway_dbs <- c("Reactome_2016", "KEGG_2021_Human", 
+                 "GO_Biological_Process_2021", "GO_Cellular_Component_2021", "GO_Molecular_Function_2021",
+                  "WikiPathway_2021_Human")
 
 ## function to call enrich fro pathways
 enrich_dbs<-function(gene_list, dbs, adjpval_filter = 0.05){
@@ -599,6 +601,88 @@ kable_it<-function(df){
 
 
 ```
+
+```{r}
+# testing full list of DA snps
+
+gene_list <- DA_snps_to_genes %>% select(final) %>% drop_na() %>% pull(final)
+enriched <- enrichr(gene_list, pathway_dbs)
+View(enriched$KEGG_2021_Human)
+
+
+  # flatten list into a table; handle empty tables
+  for (db_name in names(enriched)){
+    if( dim(enriched[[db_name]])[1] > 0){
+      enriched[[db_name]]$db <- db_name
+    } else  {
+      # if it's empty, delete it
+      enriched[[db_name]] <- NULL
+    }
+  }
+  enriched_df<-bind_rows(enriched) %>% select( Term, Genes, db) 
+  
+
+enriched_df_unw<- enriched_df %>% tidyr::separate_rows(Genes, sep = ";", convert = TRUE)
+
+
+enriched_df_unw %>%  filter(grepl("MTMR11|OSR1|RALB|MRTFA", Genes)) %>% View()
+
+library(eulerr)
+
+# negative and junk
+s1 <- list(MTMR11 = enriched_df_unw %>% filter(Genes == "MTMR11") %>% pull(Term) %>% sort(),
+           OSR1 = enriched_df_unw %>% filter(Genes == "OSR1") %>% pull(Term) %>% sort(),
+           RALB = enriched_df_unw %>% filter(Genes == "RALB") %>% pull(Term) %>% sort(),
+           MRTFA = enriched_df_unw %>% filter(Genes == "MRTFA") %>% pull(Term) %>% sort())
+plot(euler(s1, shape = "ellipse"), quantities = TRUE)
+
+s1_list<-unique(unlist(s1))
+
+s2 <- list(RPL17  = enriched_df_unw %>% filter(Genes == "RPL17") %>% pull(Term) %>% sort(),
+           BCL2  = enriched_df_unw %>% filter(Genes  == "BCL2") %>% pull(Term) %>% sort(),
+           AREG  = enriched_df_unw %>% filter(Genes  == "AREG") %>% pull(Term) %>% sort(),
+           SMIM25  = enriched_df_unw %>% filter(Genes== "SMIM25") %>% pull(Term) %>% sort(),
+           PRKG1  = enriched_df_unw %>% filter(Genes == "PRKG1") %>% pull(Term) %>% sort(),
+           MKX  = enriched_df_unw %>% filter(Genes   == "MKX") %>% pull(Term) %>% sort(),
+           PRDM6  = enriched_df_unw %>% filter(Genes == "PRDM6") %>% pull(Term) %>% sort(),
+           ATXN1  = enriched_df_unw %>% filter(Genes == "ATXN1") %>% pull(Term) %>% sort(),
+           TAB2  = enriched_df_unw %>% filter(Genes  == "TAB2") %>% pull(Term) %>% sort(),
+           FAF1  = enriched_df_unw %>% filter(Genes  == "FAF1") %>% pull(Term) %>% sort(),
+           TET3  = enriched_df_unw %>% filter(Genes  == "TET3") %>% pull(Term) %>% sort(),
+           PPARG  = enriched_df_unw %>% filter(Genes == "PPARG") %>% pull(Term) %>% sort(),
+           TEX43  = enriched_df_unw %>% filter(Genes == "TEX43") %>% pull(Term) %>% sort(),
+           FUT2  = enriched_df_unw %>% filter(Genes  == "FUT2") %>% pull(Term) %>% sort())
+plot(euler(s2, shape = "ellipse"), quantities = TRUE)
+
+s2_list<-unique(unlist(s2))
+
+
+
+# extra positive
+s4 <- list(ZNF365 = enriched_df_unw %>% filter(Genes == "ZNF365") %>% pull(Term) %>% sort(),
+           DIRC3 = enriched_df_unw %>% filter(Genes == "DIRC3") %>% pull(Term) %>% sort(),
+           RAD51B = enriched_df_unw %>% filter(Genes == "RAD51B") %>% pull(Term) %>% sort())
+plot(euler(s4, shape = "circle"), quantities = TRUE)
+s4_list<-unique(unlist(s4))
+
+# both
+
+s5 <- list(negative = s1_list,
+           positive = s2_list,
+           positive_extra = s4_list)
+plot(euler(s5, shape = "circle"), quantities = TRUE)
+
+
+only_in_neg <- setdiff(s1_list, c(s2_list, s4_list))
+length(only_in_neg) #109
+
+enriched_df %>% filter(Term %in% only_in_neg) %>% View()
+enriched_df %>% filter(Term %in% only_in_neg) %>% count(Term) %>% View()
+
+enriched_df %>% filter(!Term %in% only_in_neg) %>% View()
+```
+
+
 
 
 <br>
