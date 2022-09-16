@@ -713,13 +713,15 @@ enriched_df %>%
 #### Enrichment GWAS-eQTL genes in pathways, using g:Profiler
 ```{r}
 library(gprofiler2)
-gostres <- gost(query = cluster3_genes,
-                organism = "hsapiens")
+gostres <- gost(query = gene_list,
+                organism = "hsapiens",
+                significant = F)
+
 p <- gostplot(gostres, capped = FALSE, interactive = T)
 p
 ```
 
-g:Profiler resulr as a table:
+g:Profiler results as a table:
 ```{r}
 # recall = intersection_size/term_size
 gostres$result %>% arrange(-recall) %>% 
@@ -729,6 +731,17 @@ gostres$result %>% arrange(-recall) %>%
   kable_it()
 ```
 
+# doing a multi-query, with named list, 1 gene per query, to get all apths linked to each gene
+
+```{r}
+g_list<-as.list(gene_list)
+names(g_list) <- gene_list
+
+gostres_multi <- gost(query = g_list,
+                organism = "hsapiens",
+                significant = F, multi_query=F)
+
+```
 
 
 
