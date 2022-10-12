@@ -32,6 +32,8 @@ data_lookup<-read_csv(paste0("metadata/data_lookup.csv"), show_col_types = FALSE
 
 # load functions
 source("functions.R")
+source("functions_mvmr.R")
+
 ```
 
 
@@ -246,4 +248,118 @@ p<-ggplot(dat, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colou
 
 
 
+# MVMR cBMI + trait -> MD
+```{r}
+
+early_bmi_file <- data_lookup %>% filter(trait == "Childhood body size") %>% pull(tophits_data)
+early_bmi_exp <- read_tsv(paste0(data_path_tophits, early_bmi_file))
+early_bmi_gwas_file <- data_lookup %>% filter(trait == "Childhood body size") %>% pull(full_data)
+early_bmi_gwas <- vroom(paste0(data_path_gwas, early_bmi_gwas_file))
+
+traits <- data_lookup %>%  filter(trait_category %in% c("hormones", "reproductive_traits")) %>% pull(trait_file_name)
+
+ ### direction 1 trait - MD
+
+mvmr <-tibble()
+
+for (trait_name in traits){
+  
+  # get trait SNPs
+   dat <- data_lookup %>% filter(trait_file_name == trait_name) 
+   
+   if (is.na(dat$mrbase.id)){ # text file data
+      trait_as_exp = dat %>% pull(tophits_data)
+      trait_as_exp <- read_tsv(paste0(data_path_tophits, trait_as_exp),  show_col_types = F)
+      trait_as_out =  dat %>% pull(full_data)
+      trait_as_out <- vroom(paste0(data_path_gwas, trait_as_out))
+
+      
+     } else { # mrbase data
+      data_id = dat %>% pull(mrbase.id)
+      trait_as_exp <- extract_instruments(data_id) %>% clump_data()
+     }
+
+
+  for (out in outcomes){
+    
+    print(paste0("=========Doing MVMR of ", trait_name, "  and childhood BMI against ", out))
+  
+    # read  outcome
+    exposure_dat <- trait_as_exp
+    md_pheno_as_outcome <- data_lookup %>% 
+          filter(trait_file_name == out) %>%  
+          filter(trait_category == current_trait_category) %>% pull(full_data)
+    outcome <- vroom(paste0(data_path_gwas, md_pheno_as_outcome), show_col_types = F)
+      
+    # put all exposure and full gwas dat into lists
+      exposure_list <- list(early_bmi_exp, trait_as_exp)
+      
+      if (!is.na(dat$mrbase.id)){
+        trait_as_out <- extract_outcome_data(snps = exposure_list %>% 
+                                                purrr::reduce(bind_rows) %>% pull(SNP), 
+                                         outcomes = data_id)
+        trait_as_out$outcome <- trait_name
+      }
+      
+      full_gwas_list <- list(early_bmi_gwas, trait_as_out)
+    
+    
+    # create exposure_dat format
+      exposure_dat <- get_mv_exposures(exposure_list, full_gwas_list, clump_exposures = T) 
+    
+      #Next, also extract those SNPs from the outcome.
+      outcome_dat <- outcome %>%  filter(SNP %in% exposure_dat$SNP)
+      
+      
+      #Once the data has been obtained, harmonise so that all are on the same reference allele.
+      mvdat <- mv_harmonise_data(exposure_dat, outcome_dat)
+      
+      #Finally, perform the multivariable MR analysis
+      res <- mv_multiple(mvdat)
+      
+      mv_res<- res$result %>%
+                    split_outcome() %>% 
+                    separate(outcome, "outcome", sep="[(]") %>% 
+                    generate_odds_ratios() %>% 
+                    select(-id.exposure, -id.outcome) %>% 
+                    mutate(pair = trait_name)
+        
+
+    
+    mvmr<- bind_rows(mvmr, mv_res)
+  
+  }
+}
+
+write_tsv(mvmr, paste0("../02_Results/md_w_traits_biMR/","mvmr_results_w_cBMI.tsv"))
+
+```
+
+```{r}
+dat<- read_tsv(paste0("../02_Results/md_w_traits_biMR/","mvmr_results_w_cBMI.tsv")) %>% 
+      mutate(exposure = ifelse(exposure == "age_at_menarche_perry", "Age at menarche (Perry)", exposure)) %>% 
+      mutate(exposure = ifelse(exposure == "age_at_menarche_ukb", "Age at menarche (UKB)", exposure)) %>%
+  filter(exposure != "Childhood body size") %>% 
+  
+      mutate(beta_CI = paste0(round(b,2), " [",round(lo_ci,2) ,":",round(up_ci,2), "]")) %>% 
+      mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                                ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
+
+pal<-rev(c(unname(yarrr::piratepal("pony"))))[c(6,2,1)]
+p<-ggplot(dat, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2.5)+
+  #xlim(-1.2,0.5)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
+  geom_vline(xintercept=0, linetype=3) +
+  geom_text(aes(label=beta_CI),hjust=-0.1, vjust=-0.6, size =3, color = '#333232')+
+  theme_minimal_hgrid(10, rel_small = 1) +
+  facet_wrap(~outcome, ncol=1)+
+  scale_y_discrete(position = "left")+
+  labs(color = "",y = "", x = "Beta",
+       #title= paste0("Univariate MR, 95% CI; direction 1: trait -> MD") )+
+       title= paste0("MVMR direct effect, accounted for Childhood body size, 95% CI") )+
+  theme(legend.position = "none", plot.title.position  = "plot")
+```
 
