@@ -42,6 +42,8 @@ da_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_DA_sieh_tophi
                 
 da_new <- read_tsv(paste0(data_path_tophits, "dense_area_tophits.tsv")) # 25
 
+da_all <- read_tsv(paste0(data_path_tophits, "dense_area_tophits_all.tsv")) #668
+
 ```
 
 ```{r}
@@ -101,6 +103,37 @@ p3_old <- mr_leaveoneout_plot(res_loo)
 
 
 ```
+
+```{r}
+# DA -all
+
+out <- extract_outcome_data(snps = da_all$SNP, outcome = "ieu-a-1126")
+harmonised_all<- harmonise_data(exposure_dat = da_all, outcome_dat = out)
+harmonised_all %>% select(SNP, beta.exposure, beta.outcome, pval.exposure, pval.outcome) %>% View()
+
+
+res_all <- mr(harmonised_all) %>% 
+  split_outcome() %>% 
+  generate_odds_ratios()
+
+het_all<- mr_heterogeneity(harmonised_all)
+egger_int_all <- mr_pleiotropy_test(harmonised_all)
+
+
+#> Analysing 'ieu-a-2' on 'ieu-a-7'
+p1_all <- mr_scatter_plot(res_all, harmonised_all)
+
+res_single_all <- mr_singlesnp(harmonised_all, all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression","mr_weighted_median","mr_weighted_mode"))%>% 
+  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
+p2_all <- mr_forest_plot(res_single_all)
+
+
+res_loo <- mr_leaveoneout(harmonised_all)
+p3_all <- mr_leaveoneout_plot(res_loo)
+
+```
+
+
 
 ```{r}
 library(cowplot)
@@ -503,15 +536,165 @@ out_old <- bind_rows(mr_cluster_list)
 ```
 
 ```{r}
+# MR clust on all genome-wide significant SNPs
+library(mrclust)
+
+# Only keep single-SNP results from relevant columns
+res_single_new <- res_single_all %>%
+                  select("SNP", "exposure", "outcome",  "b", "se") %>% 
+                  filter(grepl("rs", SNP))
+
+
+# Keep relevant columns for clustering
+harmonised_all_sub <- harmonised_all %>%  select("SNP", "exposure", "outcome",
+                                       "beta.exposure", "se.exposure",
+                                       "beta.outcome", "se.outcome")
+cluster_data_all <- left_join(harmonised_all_sub, res_single_all) %>% drop_na()
+
+
+
+cluster_results_all <- mr_clust_em(theta = cluster_data_all$b, 
+                                   theta_se = cluster_data_all$se,
+                                   bx = cluster_data_all$beta.exposure, 
+                                   by = cluster_data_all$beta.outcome,
+                                   bxse = cluster_data_all$se.exposure,
+                                   byse = cluster_data_all$se.outcome,
+                                   obs_names = cluster_data_all$SNP)
+
+cluster_results_all$results$best
+clusters_all = unique(cluster_results_all$results$best$cluster_class); # same answer if we type
+clusters_all
+head(clusters_all$cluster_membership$cluster_1)
+
+clust_plot_best_all = cluster_results_all$plots$two_stage +
+  ggplot2::xlab("Genetic association with DA") +
+  ggplot2::ylab("Genetic association with BC") +
+  ggplot2::ggtitle("")
+clust_plot_best_all
+
+
+
+clust_list <- names(cluster_results_all$cluster_membership)
+clust_list <- clust_list[!grepl("Null|Junk",clust_list )]
+
+clust_snp_list <- list()
+
+for (i in clust_list){
+  
+  x <- names(cluster_results_all$cluster_membership[[i]])
+  y <- x[x!="pr_range_0.1_to_0" ]
+  
+  a<- cluster_results_all$cluster_membership[[i]][y]
+  snps <- unname(unlist(a))
+  
+  clust_snp_list[[i]] <- snps
+}
+
+
+# list to df
+cluster_df <- data.frame(ID = rep(names(clust_snp_list), sapply(clust_snp_list, length)),
+                 rsID = unlist(clust_snp_list))
+rownames(cluster_df)<-c(1:nrow(cluster_df))
+write_tsv(cluster_df, "../../02_Results/tmp/DA_all_snps_clusters.tsv")
+
+  
+# do mr by cluster
+mr_cluster_list <- list()
+
+for (cluster in names(clust_snp_list)){
+  
+  yy <- harmonised_all %>% filter(SNP %in% clust_snp_list[[cluster]])
+  yy_mr <- mr(yy, method_list = c("mr_ivw")) %>% 
+            generate_odds_ratios() %>%
+            select(-lo_ci, -up_ci, id.exposure) %>% 
+            mutate(cluster_no = cluster)
+  mr_cluster_list[[cluster]] <- yy_mr
+  
+}
+
+out_all <- bind_rows(mr_cluster_list)
+
+
+```
+
+```{r}
+# check FUMA results for all DA snps
+
+genestxt <- read_tsv("../../genes/FUMA_job211823/genes.txt")
+snpstxt <- read_tsv("../../genes/FUMA_job211823/snps.txt")
+eqtltxt <- read_tsv("../../genes/FUMA_job211823/eqtl.txt")
+
+cluster_df <- read_tsv( "../../02_Results/tmp/DA_all_snps_clusters.tsv")
+
+
+cluster_df <-cluster_df %>% left_join(snpstxt %>% select(rsID, nearestGene), by = "rsID")
+
+cluster_df_genes<- cluster_df %>% select(cluster=ID, gene = nearestGene) %>% distinct()
+
+cluster_df_genes %>% count(gene,sort=T)
+
+
+# map to genes with gProfiler online:
+
+grof_res <-  read_csv("../../genes/gProfiler_gSNPense_18-10-2022_11-15-48.csv") %>% select(rsID=id, gprofiler_gene = gene_names) %>% distinct()
+
+cluster_df<- left_join(cluster_df,grof_res, by ="rsID")
+
+cluster_df_genes2<- cluster_df %>% select(cluster=ID, geneFUMA = nearestGene, gprofiler_gene) %>% distinct()
+
+write_tsv(cluster_df_genes2, "../../02_Results/tmp/DA_all_snps_clusters_gene_annotation.tsv")
+
+
+### Querying eQTL catalogue for  variats
+
+source("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/PhD_project/code/epigraphdb-breast-cancer/project_code/helper_functions.R")
+
+eqtl1 <- eqtl_for_snps(unique(cluster_df$rsID))
+
+
+eqtl1_sub <- eqtl1 %>% select(rsid, hgnc_symbol) %>% distinct()
+
+length(unique(cluster_df$rsID)) #563
+length(unique(eqtl1_sub$rsid)) # 375
+
+eqtl1_sub %>% count(rsid, sort=T) %>% View()
+
+eqtl1 %>% count(qtl_group, sort=T) %>% View()
+
+tissues_keep <-c(
+"Cells_Cultured_fibroblasts","fibroblast",
+"adipose_naive" ,"Adipose_Subcutaneous" ,"Adipose_Visceral_Omentum" ,"fat",
+"blood","Whole_Blood","Breast_Mammary_Tissue" )
+
+eqtl1_sub_selected_tissues <- eqtl1 %>% filter(qtl_group %in% tissues_keep) %>% 
+                                        select(rsid, hgnc_symbol,qtl_group, median_tpm, pvalue, study_id) %>% distinct() %>% 
+                                        filter(median_tpm > 0) 
+length(unique(eqtl1_sub_selected_tissues$rsid)) # 98
+
+
+cluster_df<- left_join(cluster_df,eqtl1_sub_selected_tissues, by =c("rsID"="rsid"))
+
+cluster_df_genes3<- cluster_df %>% select(cluster=ID, geneFUMA = nearestGene, gprofiler_gene, eQTL_gene = hgnc_symbol, everything()) %>% distinct() %>% mutate(eQTL_gene = ifelse(eQTL_gene=="", NA, eQTL_gene))
+
+cluster_df_genes3_sub<- cluster_df_genes3 %>% select("cluster" , "geneFUMA","gprofiler_gene" ,"eQTL_gene" ) %>% distinct()
+
+write_tsv(cluster_df_genes3_sub, "../../02_Results/tmp/DA_all_snps_clusters_gene_annotation_plus_eQTL.tsv")
+
+```
+
+
+```{r}
 #phenoscanner
 library(phenoscanner)
 library(ieugwasr)
+library(TwoSampleMR)
+
 
 get_pheno_assoc <- function(snp){
 
   # query phenoscanner
-  res <- phenoscanner(snpquery=snp)
-  phenosc <- res$results 
+  res <- phenoscanner::phenoscanner(snpquery=snp)
+  phenosc <- res$results %>% filter(ancestry == "European")
   
   if (nrow(phenosc) > 0){
     phenosc<- phenosc %>%  as.data.frame() %>% 
@@ -519,17 +702,19 @@ get_pheno_assoc <- function(snp){
   } else {  phenosc<-c() } # in case no res
   
   # query opengwas
-  phwnogw<- phewas(variants=snp, pval=5e-8) 
+  ao <-TwoSampleMR::available_outcomes() %>% filter(population == "European")
+  phwnogw<- ieugwasr::phewas(variants=snp, pval=5e-8) %>% filter(id %in% ao$id)
   if (nrow(phwnogw) > 0){
       phwnogw <- phwnogw %>%  as.data.frame()  %>% 
         arrange(p) %>% pull(trait) %>% unique()
   } else {  phwnogw<-c() }  # in case no res
     
+  # merge sources
   out <- unique(c(phenosc, phwnogw))
     
 }
 
-xx <- get_pheno_assoc(snp="rs11877925")
+xx <- get_pheno_assoc(snp="rs11877925", ao)
 
 # snps: 
 snp_df<- unlist(clust_snp_list) %>% as_data_frame()
@@ -552,13 +737,7 @@ View(snp_phewas[["rs11205303"]])
 
 
 
-```{r}
-# load SNP to gene mapping (collected from different sources)
-DA_snps_to_genes <- read_csv("../../genes/DA_snp_to_gene.csv")
-cluster1_genes <- DA_snps_to_genes %>% filter(CLUSTER==1) %>% pull(final)
-cluster2_genes <- DA_snps_to_genes %>% filter(CLUSTER==2) %>% pull(final)
-cluster3_genes <- DA_snps_to_genes %>% filter(CLUSTER==3) %>% pull(final)
-```
+
 
 
 
@@ -602,8 +781,18 @@ kable_it<-function(df){
 
 ```
 
+
 ```{r}
-# testing full list of DA snps
+# load SNP to gene mapping (collected from different sources)
+DA_snps_to_genes <- read_csv("../../genes/DA_snp_to_gene.csv")
+cluster1_genes <- DA_snps_to_genes %>% filter(CLUSTER==1) %>% pull(final)
+cluster2_genes <- DA_snps_to_genes %>% filter(CLUSTER==2) %>% pull(final)
+cluster3_genes <- DA_snps_to_genes %>% filter(CLUSTER==3) %>% pull(final)
+```
+
+
+```{r}
+# testing enrichr on DA snps
 
 gene_list <- DA_snps_to_genes %>% select(final) %>% drop_na() %>% pull(final)
 enriched <- enrichr(gene_list, pathway_dbs)
@@ -682,7 +871,122 @@ enriched_df %>% filter(Term %in% only_in_neg) %>% count(Term) %>% View()
 enriched_df %>% filter(!Term %in% only_in_neg) %>% View()
 ```
 
+```{r}
+# testing enrichr on DA snps --- all
 
+
+cluster_df_genes2<- read_tsv("../../02_Results/tmp/DA_all_snps_clusters_gene_annotation_upd.tsv") 
+cluster_df_genes2_sub <- cluster_df_genes2 %>% select(cluster, gene) %>% drop_na() %>% distinct()
+
+
+gene_list <- cluster_df_genes2_sub %>% pull(gene) %>% unique()
+enriched <- enrichr(gene_list, pathway_dbs)
+View(enriched$KEGG_2021_Human)
+
+
+# flatten list into a table; handle empty tables
+for (db_name in names(enriched)){
+  if( dim(enriched[[db_name]])[1] > 0){
+    enriched[[db_name]]$db <- db_name
+  } else  {
+    # if it's empty, delete it
+    enriched[[db_name]] <- NULL
+  }
+}
+enriched_df<-bind_rows(enriched) %>% select( Term, Genes, db) 
+
+enriched_df_unw<- enriched_df %>% tidyr::separate_rows(Genes, sep = ";", convert = TRUE)
+
+genes_not_mapped <- setdiff(gene_list, unique(enriched_df_unw$Genes)) # need to eQTL those genes
+# "GVINP1"    "PELATON"   "LINC01270" "HSPE1P10"  "FNBP1P1"   "DIRC3"     "LINC01376"
+
+
+enriched_df_unw <-enriched_df_unw %>% left_join(cluster_df_genes2_sub, by  = c("Genes" = "gene"))
+
+enriched_df_unw <-enriched_df_unw %>% 
+                        mutate(clust_type = case_when(grepl("6|3|4", cluster) ~ "negative",
+                                                      grepl("1|5|2", cluster) ~ "positive")) 
+
+enriched_df_unw_clust <-enriched_df_unw %>%  select(-Genes, -cluster) %>% distinct()
+
+library(eulerr)
+# negative and junk
+sX <- list(positive = enriched_df_unw_clust %>% filter(clust_type == "positive") %>% pull(Term) %>% sort(),
+           negative = enriched_df_unw_clust %>% filter(clust_type == "negative") %>% pull(Term) %>% sort())
+plot(euler(sX, shape = "ellipse"), quantities = TRUE)
+
+length(setdiff(sX$negative, sX$positive))
+onlyneg<- setdiff(sX$negative, sX$positive)# 87 # 141 with OSR1 #138 other manually added
+onlypos<- setdiff(sX$positive, sX$negative)#600 # 584 #590
+bothclust<- intersect(sX$positive, sX$negative)#31 # 47 # 126
+
+enriched_df_unw %>% filter(Term %in% onlyneg) %>% View()
+
+
+path_count<- enriched_df_unw %>% count(Term, sort=T)
+
+enriched_df_unw <- enriched_df_unw %>%
+  mutate(clust_status =
+         case_when(Term %in% onlyneg ~ "only in negative",
+                   Term %in% onlypos ~ "only in positive",
+                   TRUE ~ "in both ")) %>% 
+  left_join(path_count, by="Term")
+
+
+library(eulerr)
+
+# negative and junk
+s1 <- list(MTMR11 = enriched_df_unw %>% filter(Genes == "MTMR11") %>% pull(Term) %>% sort(),
+           OSR1 = enriched_df_unw %>% filter(Genes == "OSR1") %>% pull(Term) %>% sort(),
+           RALB = enriched_df_unw %>% filter(Genes == "RALB") %>% pull(Term) %>% sort(),
+           MRTFA = enriched_df_unw %>% filter(Genes == "MRTFA") %>% pull(Term) %>% sort())
+plot(euler(s1, shape = "ellipse"), quantities = TRUE)
+
+s1_list<-unique(unlist(s1))
+
+s2 <- list(RPL17  = enriched_df_unw %>% filter(Genes == "RPL17") %>% pull(Term) %>% sort(),
+           BCL2  = enriched_df_unw %>% filter(Genes  == "BCL2") %>% pull(Term) %>% sort(),
+           AREG  = enriched_df_unw %>% filter(Genes  == "AREG") %>% pull(Term) %>% sort(),
+           SMIM25  = enriched_df_unw %>% filter(Genes== "SMIM25") %>% pull(Term) %>% sort(),
+           PRKG1  = enriched_df_unw %>% filter(Genes == "PRKG1") %>% pull(Term) %>% sort(),
+           MKX  = enriched_df_unw %>% filter(Genes   == "MKX") %>% pull(Term) %>% sort(),
+           PRDM6  = enriched_df_unw %>% filter(Genes == "PRDM6") %>% pull(Term) %>% sort(),
+           ATXN1  = enriched_df_unw %>% filter(Genes == "ATXN1") %>% pull(Term) %>% sort(),
+           TAB2  = enriched_df_unw %>% filter(Genes  == "TAB2") %>% pull(Term) %>% sort(),
+           FAF1  = enriched_df_unw %>% filter(Genes  == "FAF1") %>% pull(Term) %>% sort(),
+           TET3  = enriched_df_unw %>% filter(Genes  == "TET3") %>% pull(Term) %>% sort(),
+           PPARG  = enriched_df_unw %>% filter(Genes == "PPARG") %>% pull(Term) %>% sort(),
+           TEX43  = enriched_df_unw %>% filter(Genes == "TEX43") %>% pull(Term) %>% sort(),
+           FUT2  = enriched_df_unw %>% filter(Genes  == "FUT2") %>% pull(Term) %>% sort())
+plot(euler(s2, shape = "ellipse"), quantities = TRUE)
+
+s2_list<-unique(unlist(s2))
+
+
+
+# extra positive
+s4 <- list(ZNF365 = enriched_df_unw %>% filter(Genes == "ZNF365") %>% pull(Term) %>% sort(),
+           DIRC3 = enriched_df_unw %>% filter(Genes == "DIRC3") %>% pull(Term) %>% sort(),
+           RAD51B = enriched_df_unw %>% filter(Genes == "RAD51B") %>% pull(Term) %>% sort())
+plot(euler(s4, shape = "circle"), quantities = TRUE)
+s4_list<-unique(unlist(s4))
+
+# both
+
+s5 <- list(negative = s1_list,
+           positive = s2_list,
+           positive_extra = s4_list)
+plot(euler(s5, shape = "circle"), quantities = TRUE)
+
+
+only_in_neg <- setdiff(s1_list, c(s2_list, s4_list))
+length(only_in_neg) #109
+
+enriched_df %>% filter(Term %in% only_in_neg) %>% View()
+enriched_df %>% filter(Term %in% only_in_neg) %>% count(Term) %>% View()
+
+enriched_df %>% filter(!Term %in% only_in_neg) %>% View()
+```
 
 
 <br>
