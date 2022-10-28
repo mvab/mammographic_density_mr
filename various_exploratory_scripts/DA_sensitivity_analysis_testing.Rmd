@@ -624,6 +624,8 @@ genestxt <- read_tsv("../../genes/FUMA_job211823/genes.txt")
 snpstxt <- read_tsv("../../genes/FUMA_job211823/snps.txt")
 eqtltxt <- read_tsv("../../genes/FUMA_job211823/eqtl.txt")
 
+genestxt500kb <- read_tsv("../../genes/FUMA_job212193/genes.txt") ## test  -- this one finds OSR1
+
 cluster_df <- read_tsv( "../../02_Results/tmp/DA_all_snps_clusters.tsv")
 
 
@@ -923,70 +925,33 @@ bothclust<- intersect(sX$positive, sX$negative)#31 # 47 # 126
 enriched_df_unw %>% filter(Term %in% onlyneg) %>% View()
 
 
-path_count<- enriched_df_unw %>% count(Term, sort=T)
+path_count<- enriched_df_unw %>% count(Term, sort=T) # 
+path_count2<- enriched_df_unw %>% select(Term, Genes) %>% distinct() %>% count(Term, sort=T) %>% rename(n_path = n)
 
 enriched_df_unw <- enriched_df_unw %>%
   mutate(clust_status =
          case_when(Term %in% onlyneg ~ "only in negative",
                    Term %in% onlypos ~ "only in positive",
                    TRUE ~ "in both ")) %>% 
-  left_join(path_count, by="Term")
+  left_join(path_count, by="Term") %>% 
+  left_join(path_count2, by="Term") 
 
 
-library(eulerr)
+write_tsv(enriched_df_unw, "../../02_Results/tmp/DA_all_pathways_by_clusters.tsv")
 
-# negative and junk
-s1 <- list(MTMR11 = enriched_df_unw %>% filter(Genes == "MTMR11") %>% pull(Term) %>% sort(),
-           OSR1 = enriched_df_unw %>% filter(Genes == "OSR1") %>% pull(Term) %>% sort(),
-           RALB = enriched_df_unw %>% filter(Genes == "RALB") %>% pull(Term) %>% sort(),
-           MRTFA = enriched_df_unw %>% filter(Genes == "MRTFA") %>% pull(Term) %>% sort())
-plot(euler(s1, shape = "ellipse"), quantities = TRUE)
-
-s1_list<-unique(unlist(s1))
-
-s2 <- list(RPL17  = enriched_df_unw %>% filter(Genes == "RPL17") %>% pull(Term) %>% sort(),
-           BCL2  = enriched_df_unw %>% filter(Genes  == "BCL2") %>% pull(Term) %>% sort(),
-           AREG  = enriched_df_unw %>% filter(Genes  == "AREG") %>% pull(Term) %>% sort(),
-           SMIM25  = enriched_df_unw %>% filter(Genes== "SMIM25") %>% pull(Term) %>% sort(),
-           PRKG1  = enriched_df_unw %>% filter(Genes == "PRKG1") %>% pull(Term) %>% sort(),
-           MKX  = enriched_df_unw %>% filter(Genes   == "MKX") %>% pull(Term) %>% sort(),
-           PRDM6  = enriched_df_unw %>% filter(Genes == "PRDM6") %>% pull(Term) %>% sort(),
-           ATXN1  = enriched_df_unw %>% filter(Genes == "ATXN1") %>% pull(Term) %>% sort(),
-           TAB2  = enriched_df_unw %>% filter(Genes  == "TAB2") %>% pull(Term) %>% sort(),
-           FAF1  = enriched_df_unw %>% filter(Genes  == "FAF1") %>% pull(Term) %>% sort(),
-           TET3  = enriched_df_unw %>% filter(Genes  == "TET3") %>% pull(Term) %>% sort(),
-           PPARG  = enriched_df_unw %>% filter(Genes == "PPARG") %>% pull(Term) %>% sort(),
-           TEX43  = enriched_df_unw %>% filter(Genes == "TEX43") %>% pull(Term) %>% sort(),
-           FUT2  = enriched_df_unw %>% filter(Genes  == "FUT2") %>% pull(Term) %>% sort())
-plot(euler(s2, shape = "ellipse"), quantities = TRUE)
-
-s2_list<-unique(unlist(s2))
-
-
-
-# extra positive
-s4 <- list(ZNF365 = enriched_df_unw %>% filter(Genes == "ZNF365") %>% pull(Term) %>% sort(),
-           DIRC3 = enriched_df_unw %>% filter(Genes == "DIRC3") %>% pull(Term) %>% sort(),
-           RAD51B = enriched_df_unw %>% filter(Genes == "RAD51B") %>% pull(Term) %>% sort())
-plot(euler(s4, shape = "circle"), quantities = TRUE)
-s4_list<-unique(unlist(s4))
-
-# both
-
-s5 <- list(negative = s1_list,
-           positive = s2_list,
-           positive_extra = s4_list)
-plot(euler(s5, shape = "circle"), quantities = TRUE)
-
-
-only_in_neg <- setdiff(s1_list, c(s2_list, s4_list))
-length(only_in_neg) #109
-
-enriched_df %>% filter(Term %in% only_in_neg) %>% View()
-enriched_df %>% filter(Term %in% only_in_neg) %>% count(Term) %>% View()
-
-enriched_df %>% filter(!Term %in% only_in_neg) %>% View()
 ```
+
+```{r}
+# continue playing with the output
+enriched_df_unw <-  read_tsv("../../02_Results/tmp/DA_all_pathways_by_clusters.tsv")
+
+enriched_df_unw %>% filter(grepl("epithel", Term)) %>% separate(Term, into=c("pathway", "rest"), sep = " \\(")  %>%  select(pathway, cluster) %>% distinct() %>% View()
+
+
+enriched_df_unw %>% filter(clust_status == 'only in positive') %>% View()
+
+```
+
 
 
 <br>

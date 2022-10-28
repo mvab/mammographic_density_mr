@@ -3,7 +3,7 @@ Childhood body size,bmi,BMI_10_adj_month_f_imputed.txt.gz,early_bmi_adj_GWAS_tid
 Adult body size,bmi,BMI_adult_female.txt.gz,adult_bmi_GWAS_tidy_outcome.txt.gz,adult_bmi_tophits.tsv,adult_bmi,ieu_gwas_pipeline,tsv,NA,
 Adult BMI unadjust,bmi,21001_irnt.gwas.imputed_v3.female.tsv.bgz,adult_bmi_cont_ukb_GWAS_tidy_outcome.txt.gz,adult_bmi_cont_ukb_tophits_adj_subset.tsv,adult_bmi_cont_ukb_adj_subset,ukb_neale,tsv,NA,
 Adult BMI,cov,21001_irnt.gwas.imputed_v3.female.tsv.bgz,adult_bmi_cont_ukb_GWAS_tidy_outcome.txt.gz,adult_bmi_cont_ukb_tophits.tsv,adult_bmi_cont_ukb,ukb_neale,tsv,NA,
-Adult BMI,cov,NA,adult_bmi_cont_ukb_GWAS_tidy_outcome.txt.gz,adult_bmi_cont_ukb_tophits.tsv,adult_bmi_giant,NA,tsv,ieu-a-974,
+Adult BMI,cov,NA,NA,NA,adult_bmi_giant,NA,tsv,ieu-a-974,
 Age at menopause (Day),Xreproductive_traits,NA,NA,NA,age_at_menopause_day,NA,mrbase,ieu-a-1004,293944
 Age at menopause (UKB),Xreproductive_traits,NA,NA,NA,age_at_menopause_ukb,NA,mrbase,ukb-b-17422,69360
 Age at menarche (Perry),reproductive_traits,NA,NA,NA,age_at_menarche_perry,NA,mrbase,ieu-a-1095,182416

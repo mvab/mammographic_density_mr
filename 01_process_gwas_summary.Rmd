@@ -123,12 +123,18 @@ extract_tophits <- function(outcome_gwas){
       convert_outcome_to_exposure() %>% 
       clump_data(., clump_r2 = 0.001)
 }
+
+extract_tophits_wo_clump <- function(outcome_gwas){
+    outcome_gwas %>%
+      filter(pval.outcome < 5e-8) %>% 
+      convert_outcome_to_exposure() 
+}
 ```
 
 ```{r}
 # specify the source of full summary stats GWAS file
 data_source <- "shared_subset" # ieu_gwas_pipeline_v2
-trait_cat = 'md_sub'
+trait_cat = 'md'
 traits <- data_lookup %>% filter(source == data_source) %>% filter(trait_category == trait_cat) %>%  pull(trait)
 ```
 
