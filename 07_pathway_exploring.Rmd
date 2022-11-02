@@ -1,0 +1,243 @@
+---
+title: "07_pathway_exploring"
+author: "Marina Vabistsevits"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(vroom)
+
+library(tidyr)
+library(tibble)
+library(dplyr)
+
+library(gprofiler2)
+library(enrichR)
+library(httr)
+library(jsonlite)
+library(GenomicRanges)
+library(biomaRt)
+
+library(eulerr)
+```
+
+```{r message=F}
+# set path for pre-calculated data, outside the code repo
+# `local` / `remote` (reading data from RDSF)
+currently_working_env = "local"
+source("set_paths.R")
+set_paths(currently_working_env)
+
+# metafile
+data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
+bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) 
+
+# load functions
+source("functions.R")
+```
+
+# Select and load data 
+
+```{r}
+# dense
+exp_code <- "PD" 
+cluster_df <-read_tsv(paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
+
+```
+
+# Map SNPs to genes
+
+Run a FUMA job with the list of SNP (input file from 06_instruments_review.Rmd file) and save the SNPs result
+
+## FUMA
+
+```{r}
+# read FUMA snp-gene mapping
+if (!grepl("all", exp_code)){exp_code_fuma <- paste0(exp_code, "_all")} else{ exp_code_fuma <- exp_code}
+snpstxt <- read_tsv(paste0(results_path, "FUMA/FUMA_", exp_code_fuma, "/snps.txt")) # we FUMA-s all gws SNPs, but leftjoin will keep only what is needed if we are workign with a subset
+
+cluster_df <-cluster_df %>% left_join(snpstxt %>% dplyr::select(rsID, geneFUMA=nearestGene), by = "rsID")
+cluster_df_genes<- cluster_df %>% dplyr::select(cluster=ID, geneFUMA) %>% distinct()
+cluster_df_genes %>% count(geneFUMA,sort=T)
+
+### updating rsids that have been updated: (NDA data specific)
+cluster_df <- cluster_df %>% mutate(rsID = ifelse(rsID == "rs140884715", "rs10923532",rsID ))
+```
+
+## gProfiler
+
+```{r}
+# map to genes with gProfiler:
+library(gprofiler2)
+grof_res <- gprofiler2::gsnpense(query =unique(cluster_df$rsID)) %>% 
+            dplyr::select(rsID=rs_id, gprofiler_gene = gene_names) %>% distinct()
+
+# just check
+cluster_df_tmp<- left_join(cluster_df, grof_res, by ="rsID")
+cluster_df_genes2<- cluster_df_tmp %>% 
+                    dplyr::select(cluster=ID, geneFUMA, gprofiler_gene) %>% distinct()
+```
+
+
+## eQTL catalogue
+```{r}
+### Querying eQTL catalogue for variants
+
+eqtl1 <- eqtl_for_snps(unique(cluster_df$rsID))
+
+eqtl1_sub <- eqtl1 %>% dplyr::select(rsid, hgnc_symbol) %>% distinct()
+
+print(paste("mapped", length(unique(eqtl1_sub$rsid)), "SNPs out of", length(unique(cluster_df$rsID))))
+
+eqtl1_sub %>% count(rsid, sort=T) %>% View()
+eqtl1 %>% count(qtl_group, sort=T) %>% View()
+
+tissues_keep <-c("Cells_Cultured_fibroblasts" ,
+                 "Adipose_Subcutaneous" ,"Adipose_Visceral_Omentum" ,
+                 "Whole_Blood",
+                 "Breast_Mammary_Tissue" ) # GTEx V8 only
+
+eqtl1 %>% dplyr::select(qtl_group, study_id) %>% filter(qtl_group %in% tissues_keep) %>% distinct() %>%  View()
+
+
+eqtl1_sub_selected_tissues <- eqtl1 %>% 
+                              filter(qtl_group %in% tissues_keep) %>% 
+                              dplyr::select(rsid, eQTL_gene = hgnc_symbol,qtl_group, median_tpm, pvalue) %>% 
+                              distinct() %>% 
+                              filter(median_tpm > 0) %>% 
+                              mutate(eQTL_gene = ifelse(eQTL_gene=="", NA, eQTL_gene))
+
+
+print(paste("mapped", length(unique(eqtl1_sub$rsid)), "SNPs out of", length(unique(cluster_df$rsID)), "; in selected tissues:", length(unique(eqtl1_sub_selected_tissues$rsid)) ))
+```
+
+
+## joining and saving mappings
+
+````{r}
+cluster_df_multi<- left_join(cluster_df, grof_res, by ="rsID") %>%  # fuma +gprof
+                    left_join(., eqtl1_sub_selected_tissues, by =c("rsID"="rsid")) # . + eQTL
+
+cluster_df_genes3<- cluster_df_multi %>% 
+  dplyr::select(cluster=ID, rsID, geneFUMA, gprofiler_gene, eQTL_gene, everything()) %>%
+  distinct() 
+# save version with tissues 
+write_tsv(cluster_df_genes3, 
+          paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation_w_tissues.tsv"))
+
+cluster_df_genes3_sub<- cluster_df_genes3 %>% 
+                        dplyr::select("cluster" , "geneFUMA","gprofiler_gene" ,"eQTL_gene" ) %>% distinct()
+# save tidy version
+write_tsv(cluster_df_genes3_sub, 
+          paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation.tsv"))
+```
+
+
+
+# Pathways - enrichR
+
+
+```{r}
+# load manually updated mapping file
+#cluster_df_genes2<- read_csv("../02_Results/tmp/NDA_all_snps_clusters_gene_annotation_plus_eQTL_upd.csv")
+cluster_df_genes2<- read_csv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation_manualupdate.csv"))
+cluster_df_genes2_sub <- cluster_df_genes2 %>% dplyr::select(cluster, gene) %>% drop_na() %>% distinct()
+```
+
+```{r}
+library(enrichR)
+alldbs<-listEnrichrDbs()
+pathway_dbs <- c("Reactome_2016", "KEGG_2021_Human", 
+                 "GO_Biological_Process_2021", "GO_Cellular_Component_2021", "GO_Molecular_Function_2021",
+                  "WikiPathway_2021_Human")
+```
+
+
+```{r}
+# run enrichr to collect all pathways
+gene_list <- cluster_df_genes2_sub %>% pull(gene) %>% unique()
+enriched <- enrichr(gene_list, pathway_dbs)
+
+# flatten list into a table; handle empty tables
+for (db_name in names(enriched)){
+  if( dim(enriched[[db_name]])[1] > 0){
+    enriched[[db_name]]$db <- db_name
+  } else  {
+    # if it's empty, delete it
+    enriched[[db_name]] <- NULL
+  }
+}
+enriched_df<-bind_rows(enriched) %>% dplyr::select( Term, Genes, db) 
+
+enriched_df_unw<- enriched_df %>% tidyr::separate_rows(Genes, sep = ";", convert = TRUE)
+
+genes_not_mapped <- setdiff(gene_list, unique(enriched_df_unw$Genes)) 
+genes_not_mapped # check if any genes can be further mapped -- update manual annotation file
+
+```
+
+
+
+```{r}
+# merge pathways with clusters
+enriched_df_unw <- left_join(enriched_df_unw, cluster_df_genes2_sub, by  = c("Genes" = "gene"))
+
+# positive/negative cluster split is different in echa case: double check these when running
+if (startsWith(exp_code, "NDA")){
+    enriched_df_unw <-enriched_df_unw %>% 
+                        mutate(clust_type = case_when(grepl("3|2|4|Null", cluster) ~ "negative", # null is in the middle!
+                                                      grepl("1", cluster) ~ "positive",
+                                                      TRUE ~ "null" ) )
+} else if (startsWith(exp_code, "DA")){
+  enriched_df_unw <-enriched_df_unw %>% 
+                        mutate(clust_type = case_when(grepl("6|3|4", cluster) ~ "negative",
+                                                      grepl("1|5|2", cluster) ~ "positive")) 
+} else if (startsWith(exp_code, "PD")){
+  enriched_df_unw <-enriched_df_unw %>% 
+                        mutate(clust_type = case_when(grepl("1|4", cluster) ~ "negative", 
+                                                      grepl("2|3|5|6", cluster) ~ "positive")) 
+}
+```
+
+
+## compare clusters
+
+```{r}
+enriched_df_unw_clust <-enriched_df_unw %>%  dplyr::select(-Genes, -cluster) %>% distinct()
+
+library(eulerr)
+# negative and junk
+sX <- list(positive = enriched_df_unw_clust %>% filter(clust_type == "positive") %>% pull(Term) %>% sort(),
+           #null = enriched_df_unw_clust %>% filter(clust_type == "null") %>% pull(Term) %>% sort(), # only add if needed
+           negative = enriched_df_unw_clust %>% filter(clust_type == "negative") %>% pull(Term) %>% sort())
+plot(euler(sX, shape = "ellipse"), quantities = TRUE)
+
+
+onlyneg<- setdiff(sX$negative, sX$positive)
+onlypos<- setdiff(sX$positive, sX$negative)
+bothclust<- intersect(sX$positive, sX$negative)
+
+enriched_df_unw %>% filter(Term %in% onlyneg) %>% View()
+
+
+path_count<- enriched_df_unw %>% count(Term, sort=T) # 
+path_count2<- enriched_df_unw %>% dplyr::select(Term, Genes) %>% distinct() %>% count(Term, sort=T) %>% dplyr::rename(n_path = n)
+
+enriched_df_unw <- enriched_df_unw %>%
+  mutate(clust_status =
+         case_when(Term %in% onlyneg ~ "only in negative",
+                   Term %in% onlypos ~ "only in positive",
+                   TRUE ~ "in both ")) %>% 
+  left_join(path_count, by="Term") %>% 
+  left_join(path_count2, by="Term") 
+
+
+write_tsv(enriched_df_unw,  paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_pathways_by_clusters.tsv"))
+
+enriched_df_unw %>% dplyr::select(cluster, Genes) %>% distinct() %>% View()
+
+```
+

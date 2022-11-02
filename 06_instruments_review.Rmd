@@ -1,0 +1,285 @@
+---
+title: "06_instruments_review"
+author: "Marina Vabistsevits"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+
+library(tidyr)
+library(dplyr)
+
+library(TwoSampleMR)
+library(MRPRESSO)
+library(RadialMR)
+library(mrclust)
+library(phenoscanner)
+library(ieugwasr)
+
+library(cowplot)
+library(ggplot2)
+```
+
+```{r message=F}
+# set path for pre-calculated data, outside the code repo
+# `local` / `remote` (reading data from RDSF)
+currently_working_env = "local"
+source("set_paths.R")
+set_paths(currently_working_env)
+
+# metafile
+data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
+bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) 
+
+# load functions
+source("functions.R")
+```
+
+# Select and load data 
+
+```{r}
+# dense
+da <- read_tsv(paste0(data_path_tophits, "dense_area_tophits.tsv"))
+exposure_name <- unique(da$exposure)
+exp_code <- "DA" 
+
+da <- read_tsv(paste0(data_path_tophits, "dense_area_tophits_all.tsv")) 
+exposure_name <- unique(da$exposure)
+exp_code <- "DA_all"
+
+#nondense
+da <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits.tsv"))
+exposure_name <- unique(da$exposure)
+exp_code <- "NDA" 
+
+da <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits_all.tsv")) 
+exposure_name <- unique(da$exposure)
+exp_code <- "NDA_all"
+
+# percent density
+da <- read_tsv(paste0(data_path_tophits, "percent_density_tophits.tsv"))
+exposure_name <- unique(da$exposure)
+exp_code <- "PD" 
+
+da <- read_tsv(paste0(data_path_tophits, "percent_density_tophits_all.tsv")) 
+exposure_name <- unique(da$exposure)
+exp_code <- "PD_all"
+
+```
+
+# MR and sensitivity
+
+```{r}
+
+# MR
+out <- extract_outcome_data(snps = da$SNP,
+                            outcome = "ieu-a-1126")
+harmonised<- harmonise_data(exposure_dat = da, 
+                                outcome_dat = out)
+res <- mr(harmonised) %>% 
+  split_outcome() %>% 
+  generate_odds_ratios()
+
+# sensitivity
+het<- mr_heterogeneity(harmonised)
+egger_int <- mr_pleiotropy_test(harmonised)
+
+p1 <- mr_scatter_plot(res, harmonised)
+
+res_single <- mr_singlesnp(harmonised, 
+                               all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression",
+                                            "mr_weighted_median","mr_weighted_mode"))%>% 
+                  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
+p2 <- mr_forest_plot(res_single)
+
+res_loo <- mr_leaveoneout(harmonised)
+p3 <- mr_leaveoneout_plot(res_loo)
+
+x<-cowplot::plot_grid( p2[[1]], p3[[1]], p1[[1]],nrow=2) 
+x
+```
+
+# MR-PRESSO 
+
+```{r}
+# run MR-presso
+library(MRPRESSO)
+mr_presso <- mr_presso(data = harmonised,
+                       BetaOutcome = "beta.outcome", BetaExposure = "beta.exposure", 
+                       SdOutcome = "se.outcome", SdExposure = "se.exposure",
+                       OUTLIERtest = TRUE, DISTORTIONtest = TRUE,  NbDistribution = 1000,  SignifThreshold = 0.05)
+
+mr_presso_df <- as.data.frame(mr_presso$`Main MR results`)
+
+mr_presso_df <- mr_presso_df %>% rename(b=`Causal Estimate`, se = Sd) %>% generate_odds_ratios()
+
+outlier_indicies <- mr_presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`
+
+outliers<- harmonised %>% select(SNP) %>%  mutate(index = row_number()) %>% 
+              filter(index %in% outlier_indicies) %>% pull(SNP)
+
+```
+
+
+
+# F-stat and Steiger filtering 
+
+```{r}
+sf_out <- calc_steiger(harmonised, exposure_ss = 24192, outcome_ss = 228951, outcome_ncase = 122977, outcome_ncontrol = 105974)
+sf_out$Fstat
+sf_out$total_r2
+sf_out$directionality$correct_causal_direction
+sf_out$single_rsq$steiger_dir
+```
+
+# Radial MR
+
+```{r}
+library(RadialMR)
+# format
+raddat <- format_radial(
+  harmonised$beta.exposure, harmonised$beta.outcome,
+  harmonised$se.exposure, harmonised$se.outcome, 
+  harmonised$SNP)
+
+# test IVW 
+ivwrad <- ivw_radial(raddat, alpha=0.05/nrow(raddat), weights=3) 
+dim(ivwrad$outliers)[1]  #9 outliers at bonf 
+#ivwrad <- ivw_radial(raddat, alpha=0.05, weights=3)
+#dim(ivwrad$outliers)[1] #13 outliers at 0.05
+
+# test Egger
+eggrad <- egger_radial(raddat, alpha=0.05/nrow(raddat), weights=3) # bonf
+#eggrad <- egger_radial(raddat, alpha=0.05, weights=3) # 0.05
+dim(eggrad$outliers)[1] #12 outliers at 0.05  (9 bonf)
+
+#plot_radial(ivwrad,radial_scale = T, show_outliers = F,scale_match= T)
+#plot_radial(eggrad,radial_scale = T, show_outliers = F,scale_match= T)
+
+# make plot
+radial_plot <- plot_radial(c(ivwrad,eggrad), radial_scale = T, show_outliers = F,scale_match= T)
+
+# select outliers
+ivwrad$qstatistic 
+ivwrad$sortoutliers <- ivwrad$outliers[order(ivwrad$outliers$p.value),]
+ivwrad$sortoutliers$Qsum <- cumsum(ivwrad$sortoutliers$Q_statistic)
+ivwrad$sortoutliers$Qdif <- ivwrad$sortoutliers$Qsum - ivwrad$qstatistic
+
+# run MR without top outliers
+#harmonised2 <- harmonised[!harmonised$SNP %in% ivwrad$outliers$SNP,]
+#mr_results2 <- mr(harmonised2) %>%  generate_odds_ratios()
+```
+
+
+# MR Clust
+
+```{r}
+library(mrclust)
+
+# Only keep single-SNP results from relevant columns
+res_single <- mr_singlesnp(harmonised)%>% 
+                  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP)) %>% 
+                  select("SNP", "exposure", "outcome",  "b", "se") %>% 
+                  filter(grepl("rs", SNP))
+
+
+# Keep relevant columns for clustering
+harmonised_sub <- harmonised %>%  select("SNP", "exposure", "outcome",
+                                       "beta.exposure", "se.exposure",
+                                       "beta.outcome", "se.outcome")
+
+cluster_data <- left_join(harmonised_sub, res_single) %>% drop_na()
+# check how namy SNPs for dropped - not sure why this happens
+print(paste("SNP count before and after harmonisation+singleMR:", nrow(harmonised), "vs", nrow(cluster_data)))
+
+cluster_results <- mr_clust_em(theta = cluster_data$b, 
+                                   theta_se = cluster_data$se,
+                                   bx = cluster_data$beta.exposure, 
+                                   by = cluster_data$beta.outcome,
+                                   bxse = cluster_data$se.exposure,
+                                   byse = cluster_data$se.outcome,
+                                   obs_names = cluster_data$SNP)
+
+clusters = unique(cluster_results$results$best$cluster_class)
+clusters
+
+clust_plot_best = cluster_results$plots$two_stage +
+  ggplot2::xlab(paste0("Genetic association with ", exposure_name)) +
+  ggplot2::ylab("Genetic association with Breast cancer") +
+  ggplot2::ggtitle("")
+clust_plot_best
+
+ggsave(plot=clust_plot_best, 
+       filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.png"))
+
+
+# extract SNP (and optionally drop null/junk)
+clust_list <- names(cluster_results$cluster_membership)
+#clust_list <- clust_list[!grepl("Null|Junk",clust_list )]
+
+# get SNPs for each cluster
+clust_snp_list <- list()
+for (i in clust_list){
+  
+  x <- names(cluster_results$cluster_membership[[i]])
+  y <- x[x!="pr_range_0.1_to_0" ]
+  
+  a<- cluster_results$cluster_membership[[i]][y]
+  snps <- unname(unlist(a))
+  
+  clust_snp_list[[i]] <- snps
+}
+
+
+# list to df
+cluster_df <- data.frame(ID = rep(names(clust_snp_list), sapply(clust_snp_list, length)),
+                 rsID = unlist(clust_snp_list))
+rownames(cluster_df)<-c(1:nrow(cluster_df))
+write_tsv(cluster_df, paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
+
+  
+# do mr by cluster
+mr_cluster_list <- list()
+
+for (cluster in names(clust_snp_list)){
+  
+  yy <- harmonised %>% filter(SNP %in% clust_snp_list[[cluster]])
+  yy_mr <- mr(yy, method_list = c("mr_ivw")) %>% 
+            generate_odds_ratios() %>%
+            select(-lo_ci, -up_ci, id.exposure) %>% 
+            mutate(cluster_no = cluster)
+  mr_cluster_list[[cluster]] <- yy_mr
+  
+}
+
+out <- bind_rows(mr_cluster_list)
+```
+
+
+
+# PheWAS
+
+```{r}
+#phenoscanner
+library(phenoscanner)
+library(ieugwasr)
+
+# get list of EU GWAS fro filtering Phewas results
+ao_eu <-TwoSampleMR::available_outcomes() %>% filter(population == "European")
+
+# test
+#xx <- get_pheno_assoc(snp="rs11877925", ao_eu)
+
+# snps list 
+snp_df<- unlist(clust_snp_list) %>% unique() %>%  as_data_frame()
+
+# run PheWAS for each SNP
+snp_phewas <- lapply(snp_df$value, get_pheno_assoc, ao_eu )
+names(snp_phewas) <- snp_df$value
+
+save(snp_phewas, file=paste0(results_path, "phewas/",exp_code,"_cluster_phewas.RData"))
+
+```
