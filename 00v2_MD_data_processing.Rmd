@@ -1,0 +1,68 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(vroom)
+library(dplyr)
+```
+
+```{r}
+# set path for pre-calculated data, outside the code repo
+# `local` / `remote` (reading data from RDSF)
+currently_working_env = "local"
+source("set_paths.R")
+set_paths(currently_working_env)
+
+```
+
+```{r}
+md_gwas_all <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "MD_study_required_SNPS_v2_BMI_unadjusted_results_2022-10-31.csv"))
+
+
+### SNPs for outcomes
+
+# filter to the present SNPs and select required cols
+md_gwas_all <- md_gwas_all %>% 
+              select(SNP=rsid, effect_allele, other_allele=ref_allele, effect_allele_freq, da_effect:`pd_p-value`) %>% 
+              mutate_at(vars(effect_allele_freq:`pd_p-value`), as.numeric)
+
+# split into 3 MD datasets and update colnames
+md_gwas_DA <- md_gwas_all %>% 
+              select(SNP, effect_allele, other_allele, effect_allele_freq, starts_with("da_")) %>% 
+              setNames(gsub("da_","",names(.))) 
+md_gwas_NDA <- md_gwas_all %>% 
+              select(SNP, effect_allele, other_allele, effect_allele_freq, starts_with("nda_")) %>% 
+              setNames(gsub("nda_","",names(.))) 
+md_gwas_PD <- md_gwas_all %>% 
+              select(SNP, effect_allele, other_allele, effect_allele_freq, starts_with("pd_")) %>% 
+              setNames(sub("pd_","",names(.))) 
+
+
+## SNPs for exposures
+
+md_gwas_DA_tophits <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "BMI_unadjusted_gwas_DA_snps_2022-10-31.csv"), skip=1) %>% 
+                      select(-chrom, -pos_grch37, SNP = rsid)
+md_gwas_NDA_tophits <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "BMI_unadjusted_gwas_NDA_snps_2022-10-31.csv"), skip=1) %>% 
+                      select(-chrom, -pos_grch37, SNP = rsid)
+md_gwas_PD_tophits <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "BMI_unadjusted_gwas_PD_snps_2022-10-31.csv"), skip=1) %>% 
+                      select(-chrom, -pos_grch37, SNP = rsid)
+
+
+## merge exposure and outcome SNPs and save
+
+md_gwas_DA <- bind_rows(md_gwas_DA, md_gwas_DA_tophits) %>% distinct()
+md_gwas_NDA<- bind_rows(md_gwas_NDA, md_gwas_NDA_tophits) %>% distinct()
+md_gwas_PD <- bind_rows(md_gwas_PD, md_gwas_PD_tophits) %>% distinct()
+  
+# save as 3 files
+md_gwas_DA %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_DA.csv"))
+md_gwas_NDA %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_NDA.csv"))
+md_gwas_PD %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_PD.csv"))
+
+```
+
