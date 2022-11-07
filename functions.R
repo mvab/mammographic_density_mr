@@ -119,11 +119,11 @@ get_pheno_assoc <- function(snp, ao_eu){
 ### 
 ### 
 
-library(httr)
-library(jsonlite)
-library(GenomicRanges)
-library(biomaRt)
-
+#library(httr)
+#library(jsonlite)
+#library(GenomicRanges)
+#library(biomaRt)
+#
 eqtl_for_snps <- function(variants){
   eqtl_df <- data.frame()
   for (i in 1:length(variants)){
