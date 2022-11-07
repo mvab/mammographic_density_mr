@@ -21,7 +21,7 @@ set_paths(currently_working_env)
 ```
 
 ```{r}
-md_gwas_all <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "MD_study_required_SNPS_v2_BMI_unadjusted_results_2022-10-31.csv"))
+md_gwas_all <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "MD_study_required_SNPS_v2_BMI_unadjusted_results_2022-11-04.csv"))
 
 
 ### SNPs for outcomes
@@ -34,35 +34,47 @@ md_gwas_all <- md_gwas_all %>%
 # split into 3 MD datasets and update colnames
 md_gwas_DA <- md_gwas_all %>% 
               select(SNP, effect_allele, other_allele, effect_allele_freq, starts_with("da_")) %>% 
-              setNames(gsub("da_","",names(.))) 
+              setNames(gsub("da_","",names(.))) %>% rename(beta=effect, pval="p-value")
 md_gwas_NDA <- md_gwas_all %>% 
               select(SNP, effect_allele, other_allele, effect_allele_freq, starts_with("nda_")) %>% 
-              setNames(gsub("nda_","",names(.))) 
+              setNames(gsub("nda_","",names(.))) %>% rename(beta=effect, pval="p-value")
 md_gwas_PD <- md_gwas_all %>% 
               select(SNP, effect_allele, other_allele, effect_allele_freq, starts_with("pd_")) %>% 
-              setNames(sub("pd_","",names(.))) 
+              setNames(sub("pd_","",names(.))) %>% rename(beta=effect, pval="p-value")
 
 
 ## SNPs for exposures
 
-md_gwas_DA_tophits <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "BMI_unadjusted_gwas_DA_snps_2022-10-31.csv"), skip=1) %>% 
-                      select(-chrom, -pos_grch37, SNP = rsid)
-md_gwas_NDA_tophits <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "BMI_unadjusted_gwas_NDA_snps_2022-10-31.csv"), skip=1) %>% 
-                      select(-chrom, -pos_grch37, SNP = rsid)
-md_gwas_PD_tophits <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "BMI_unadjusted_gwas_PD_snps_2022-10-31.csv"), skip=1) %>% 
-                      select(-chrom, -pos_grch37, SNP = rsid)
+md_gwas_DA_tophits <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "BMI_unadjusted_gwas_DA_snps_2022-11-04.csv"), skip=1) %>% 
+                      select(-chrom, -pos_grch37, SNP = rsid, other_allele=ref_allele, beta=Effect_size, se=StdErr, pval="P-value")
+md_gwas_NDA_tophits <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "BMI_unadjusted_gwas_NDA_snps_2022-11-04.csv"), skip=1) %>% 
+                      select(-chrom, -pos_grch37, SNP = rsid,  other_allele=ref_allele, beta=Effect_size, se=StdErr, pval="P-value")
+md_gwas_PD_tophits <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "BMI_unadjusted_gwas_PD_snps_2022-11-04.csv"), skip=1) %>% 
+                      select(-chrom, -pos_grch37, SNP = rsid,  other_allele=ref_allele, beta=Effect_size, se=StdErr, pval="P-value")
+
+
+## SNPs for exposures -- extra SNPs from prev GWAS
+
+md_gwas_DA_extra <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "Sieh_2020_DA_snps_BMI_unadjusted_results_2022-11-04.csv"), skip=1) %>% 
+                      select(-chrom, -pos_grch37, SNP = rsid, other_allele=ref_allele, beta=Effect_size, se=StdErr, pval="P-value")
+md_gwas_NDA_extra <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "Sieh_2020_NDA_snps_BMI_unadjusted_results_2022-11-04.csv"), skip=1) %>% 
+                      select(-chrom, -pos_grch37, SNP = rsid,  other_allele=ref_allele, beta=Effect_size, se=StdErr, pval="P-value")
+md_gwas_PD_extra <- read_csv(paste0(data_path, "MD_raw_files_unadj/", "Sieh_2020_PD_snps_BMI_unadjusted_results_2022-11-04.csv"), skip=1) %>% 
+                      select(-chrom, -pos_grch37, SNP = rsid,  other_allele=ref_allele, beta=Effect_size, se=StdErr, pval="P-value")
+
+
 
 
 ## merge exposure and outcome SNPs and save
 
-md_gwas_DA <- bind_rows(md_gwas_DA, md_gwas_DA_tophits) %>% distinct()
-md_gwas_NDA<- bind_rows(md_gwas_NDA, md_gwas_NDA_tophits) %>% distinct()
-md_gwas_PD <- bind_rows(md_gwas_PD, md_gwas_PD_tophits) %>% distinct()
-  
+md_gwas_DA_all <- bind_rows(md_gwas_DA, md_gwas_DA_tophits, md_gwas_DA_extra) %>%  filter(SNP!=".") %>% distinct() 
+md_gwas_NDA_all<- bind_rows(md_gwas_NDA, md_gwas_NDA_tophits, md_gwas_NDA_extra) %>%  filter(SNP!=".") %>% distinct() 
+md_gwas_PD_all <- bind_rows(md_gwas_PD, md_gwas_PD_tophits, md_gwas_PD_extra) %>%  filter(SNP!=".") %>% distinct() 
+
 # save as 3 files
-md_gwas_DA %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_DA.csv"))
-md_gwas_NDA %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_NDA.csv"))
-md_gwas_PD %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_PD.csv"))
+md_gwas_DA_all %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_unadj_DA.csv"))
+md_gwas_NDA_all %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_unadj_NDA.csv"))
+md_gwas_PD_all %>%  write_csv(paste0(data_path_gwas_raw, "md_gwas_unadj_PD.csv"))
 
 ```
 
