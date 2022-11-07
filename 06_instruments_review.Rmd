@@ -220,38 +220,44 @@ ggsave(plot=clust_plot_best,
 clust_list <- names(cluster_results$cluster_membership)
 #clust_list <- clust_list[!grepl("Null|Junk",clust_list )]
 
-# get SNPs for each cluster
-clust_snp_list <- list()
-for (i in clust_list){
+
+# for each SNP find the cluster with the higjer probability
+clust_snp_df <- tibble()
+for (cluster_name in clust_list){
   
-  x <- names(cluster_results$cluster_membership[[i]])
-  y <- x[x!="pr_range_0.1_to_0" ]
-  
-  a<- cluster_results$cluster_membership[[i]][y]
-  snps <- unname(unlist(a))
-  
-  clust_snp_list[[i]] <- snps
+  clust_assignments <- cluster_results$cluster_membership[[cluster_name]]
+  # unlist data
+  clust_assignments_df <- data.frame(probability = rep(names(clust_assignments), sapply(clust_assignments, length)),
+                 rsID = unlist(clust_assignments)) %>% 
+                            mutate(cluster = cluster_name)
+  # drop rownames
+  rownames(clust_assignments_df)<-NULL
+  # add to total df
+  clust_snp_df <- bind_rows(clust_snp_df, clust_assignments_df)
 }
+# select higher probability cluster for each SNP
+clust_snp_df_top_cluster <- 
+  clust_snp_df %>%
+  group_by(rsID) %>%
+  arrange(desc(probability)) %>% 
+  slice(1) # pick top one
 
-
-# list to df
-cluster_df <- data.frame(ID = rep(names(clust_snp_list), sapply(clust_snp_list, length)),
-                 rsID = unlist(clust_snp_list))
-rownames(cluster_df)<-c(1:nrow(cluster_df))
-write_tsv(cluster_df, paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
+write_tsv(clust_snp_df_top_cluster, paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
 
   
 # do mr by cluster
 mr_cluster_list <- list()
 
-for (cluster in names(clust_snp_list)){
+for (cluster_name in unique(clust_snp_df_top_cluster$cluster)){
   
-  yy <- harmonised %>% filter(SNP %in% clust_snp_list[[cluster]])
+  cluster_snps <- clust_snp_df_top_cluster %>% filter(cluster == cluster_name) %>% pull(rsID)
+  
+  yy <- harmonised %>% filter(SNP %in% cluster_snps)
   yy_mr <- mr(yy, method_list = c("mr_ivw")) %>% 
             generate_odds_ratios() %>%
             select(-lo_ci, -up_ci, id.exposure) %>% 
-            mutate(cluster_no = cluster)
-  mr_cluster_list[[cluster]] <- yy_mr
+            mutate(cluster_no = cluster_name)
+  mr_cluster_list[[cluster_name]] <- yy_mr
   
 }
 
@@ -274,12 +280,20 @@ ao_eu <-TwoSampleMR::available_outcomes() %>% filter(population == "European")
 #xx <- get_pheno_assoc(snp="rs11877925", ao_eu)
 
 # snps list 
-snp_df<- unlist(clust_snp_list) %>% unique() %>%  as_data_frame()
+clust_snp_df_top_cluster <- read_tsv(paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
 
 # run PheWAS for each SNP
-snp_phewas <- lapply(snp_df$value, get_pheno_assoc, ao_eu )
-names(snp_phewas) <- snp_df$value
+snp_phewas <- lapply(clust_snp_df_top_cluster$rsID, get_pheno_assoc, ao_eu )
+names(snp_phewas) <- clust_snp_df_top_cluster$rsID
 
 save(snp_phewas, file=paste0(results_path, "phewas/",exp_code,"_cluster_phewas.RData"))
+```
+
+```{r}
+# pheWAS tidy
+
+load(file=paste0(results_path, "phewas/",exp_code,"_cluster_phewas.RData"))
+
 
 ```
+
