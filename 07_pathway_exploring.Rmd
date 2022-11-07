@@ -43,7 +43,7 @@ source("functions.R")
 
 ```{r}
 # dense
-exp_code <- "PD" 
+exp_code <- "DA_all" 
 cluster_df <-read_tsv(paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
 
 ```
@@ -193,8 +193,8 @@ if (startsWith(exp_code, "NDA")){
                                                       TRUE ~ "null" ) )
 } else if (startsWith(exp_code, "DA")){
   enriched_df_unw <-enriched_df_unw %>% 
-                        mutate(clust_type = case_when(grepl("6|3|4", cluster) ~ "negative",
-                                                      grepl("1|5|2", cluster) ~ "positive")) 
+                        mutate(clust_type = case_when(grepl("3|5|4", cluster) ~ "negative",
+                                                      grepl("1|6|2", cluster) ~ "positive")) 
 } else if (startsWith(exp_code, "PD")){
   enriched_df_unw <-enriched_df_unw %>% 
                         mutate(clust_type = case_when(grepl("1|4", cluster) ~ "negative", 
@@ -237,7 +237,17 @@ enriched_df_unw <- enriched_df_unw %>%
 
 write_tsv(enriched_df_unw,  paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_pathways_by_clusters.tsv"))
 
+# for manipulating out genes for slides:
 enriched_df_unw %>% dplyr::select(cluster, Genes) %>% distinct() %>% View()
+enriched_df_unw %>% dplyr::select(cluster, Genes) %>% distinct() %>% filter(cluster == "cluster_1") %>% pull(Genes) 
+
+```
+
+# Review 3 phenotypes
+```{r}
+da_pathways <- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "DA_all", "_pathways_by_clusters.tsv"))
+nda_pathways <- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "NDA_all", "_pathways_by_clusters.tsv"))
+pd_pathways <- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "PD_all", "_pathways_by_clusters.tsv"))
 
 ```
 
