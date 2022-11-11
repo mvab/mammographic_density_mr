@@ -42,7 +42,7 @@ early_bmi_file <- data_lookup %>% filter(trait == "Childhood body size") %>% pul
 early_bmi_exp <- read_tsv(paste0(data_path_tophits, early_bmi_file))
 dim(early_bmi_exp) ## 115 in new
 
-adult_bmi_file <- data_lookup %>% filter(trait == "Adult BMI unadjust") %>% pull(tophits_data)### or this could be adult body size if used for MVMR on MD
+adult_bmi_file <- data_lookup %>% filter(trait == "Adult body size") %>% pull(tophits_data)### or this could be Adult BMI unadjust if used for MVMR with unadj
 adult_bmi_exp <- read_tsv(paste0(data_path_tophits, adult_bmi_file))
 dim(adult_bmi_exp) # 173 in new
 
@@ -51,7 +51,7 @@ early_bmi_gwas_file <- data_lookup %>% filter(trait == "Childhood body size") %>
 early_bmi_gwas <- vroom(paste0(data_path_gwas, early_bmi_gwas_file))
 dim(early_bmi_gwas) 
 
-adult_bmi_gwas_file <- data_lookup %>% filter(trait == "Adult BMI unadjust") %>% pull(full_data)
+adult_bmi_gwas_file <- data_lookup %>% filter(trait == "Adult body size") %>% pull(full_data)
 adult_bmi_gwas <- vroom(paste0(data_path_gwas, adult_bmi_gwas_file))
 dim(adult_bmi_gwas) 
 
@@ -67,7 +67,7 @@ dim(adult_bmi_gwas)
 
 ```{r}
 # specify group to process if data is in textfiles
-current_trait_category <- "md_wo_outliers"
+current_trait_category <- "md_unadj"
 mediators <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(!is.na(full_data))  %>%  pull(full_data)
 ```
 
@@ -84,10 +84,10 @@ results_path_sub <-   paste0(results_path, current_trait_category, "/")
 
 run_sens = F
 
-run_analysis_1 = F
+run_analysis_1 = T
 run_analysis_2 = F
-run_analysis_3 = T
-run_analysis_4 = T
+run_analysis_3 = F
+run_analysis_4 = F
 
 for (j in 1:length(bcac_lookup$trait)){
 
@@ -537,7 +537,7 @@ for (j in 1:length(bcac_lookup$trait)){
 
 ```{r message=FALSE}
 # select trait category
-current_trait_category <- "md_wo_outliers"
+current_trait_category <- "md_unadj"
 mvmr_files <- list.files(path = paste0(results_path, current_trait_category, '/mvmr'), full.names = T)
 # drop sensitivity files and BMI
 mvmr_files <- mvmr_files[!grepl('sens', mvmr_files)]
