@@ -108,7 +108,7 @@ get_pheno_assoc <- function(snp, ao_eu){
   } else {  phwnogw<-c() }  # in case no res
   
   # merge sources
-  out <- unique(c(phenosc, phwnogw))
+  out <- sort(unique(c(phenosc, phwnogw)))
   
 }
 
