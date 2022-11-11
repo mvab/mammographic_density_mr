@@ -274,18 +274,19 @@ da_merged<- full_join(da_new_all, da_unadj_all) %>%
             mutate(unadj = ifelse(SNP %in% da_unadj$SNP, 1, 0)) %>% 
             filter(adj==1 | unadj==1)
 write_tsv(da_merged, paste0(results_path, current_trait_category, "/compare_DA_adj_unadj.tsv"))
-
+da_merged<- read_tsv(paste0(results_path, current_trait_category, "/compare_DA_adj_unadj.tsv"))
 
 # nda
 nda_new_all <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/nondense_area_GWAS_tidy_outcome.txt.gz") %>% select(SNP, beta_adj = beta.outcome, pval_adj = pval.outcome)
 nda_unadj_all <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/nondense_area_unadj_GWAS_tidy_outcome.txt.gz")%>% select(SNP, beta_unadj = beta.outcome, pval_unadj = pval.outcome)
 
-nda_merged<- full_join(nda_new_all, nda_unadj_all) %>% 
+nda_mergedX<- full_join(nda_new_all, nda_unadj_all) %>% 
             filter(grepl("rs", SNP)) %>% 
             mutate(adj = ifelse(SNP %in% nda_new$SNP, 1, 0)) %>% 
             mutate(unadj = ifelse(SNP %in% nda_unadj$SNP, 1, 0)) %>% 
             filter(adj==1 | unadj==1)
 write_tsv(nda_merged, paste0(results_path, current_trait_category, "/compare_NDA_adj_unadj.tsv"))
+nda_merged<- read_tsv(paste0(results_path, current_trait_category, "/compare_NDA_adj_unadj.tsv"))
 
 
 # pd
@@ -298,6 +299,7 @@ pd_merged<- full_join(pd_new_all, pd_unadj_all) %>%
             mutate(unadj = ifelse(SNP %in% pd_unadj$SNP, 1, 0)) %>% 
             filter(adj==1 | unadj==1)
 write_tsv(pd_merged, paste0(results_path, current_trait_category, "/compare_PD_adj_unadj.tsv"))
+pd_merged<- read_tsv(paste0(results_path, current_trait_category, "/compare_PD_adj_unadj.tsv"))
 
 ```
 
