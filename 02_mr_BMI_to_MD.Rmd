@@ -53,7 +53,7 @@ dim(adult_bmi_exp) # 173
 ```{r}
 
 # specify group to process if data is in textfiles
-current_trait_category <- "md"
+current_trait_category <- "md_unadj"
 mediators <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(!is.na(full_data)) %>%  pull(full_data) 
 ```
 
@@ -150,7 +150,7 @@ for (i in 1:length(mediators)){
 ## save results for one category into one df
 
 # load all results files into a table to view together
-current_trait_category <- "md" ###CHANGE ME
+current_trait_category <- "md_unadj" ###CHANGE ME
 ind_res_dir <- paste0(results_path, current_trait_category)
 
 ## MR results
@@ -176,7 +176,7 @@ write_tsv(df, paste0(results_path, current_trait_category, "/merged_sens_mr_BMI-
 
 
 ```{r}
-current_trait_category <- "md"
+current_trait_category <- "md_unadj"
 dat<- read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-", current_trait_category,".tsv")) %>% 
       filter(method == "Inverse variance weighted") 
 dat %>% kable_it()
@@ -185,7 +185,7 @@ pal<-c(unname(yarrr::piratepal("pony")))
 p<-ggplot(dat, aes(y=exposure, x=b, label=outcome, shape=exposure, colour=exposure)) +
   geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
   geom_point(size=2)+
-  xlim(-1.2,0.5)+
+  #xlim(-1.2,0.5)+
   scale_color_manual(values=pal)+
   scale_shape_manual(values = c(19,20)) +
   geom_vline(xintercept=0, linetype=3,) +
