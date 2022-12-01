@@ -50,6 +50,10 @@ da <- read_tsv(paste0(data_path_tophits, "dense_area_tophits_all.tsv"))
 exposure_name <- unique(da$exposure)
 exp_code <- "DA_all"
 
+da <- read_tsv(paste0(data_path_tophits, "dense_area_unadj_tophits.tsv")) 
+exposure_name <- unique(da$exposure)
+exp_code <- "DA_unadj"
+
 #nondense
 da <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits.tsv"))
 exposure_name <- unique(da$exposure)
@@ -59,6 +63,10 @@ da <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits_all.tsv"))
 exposure_name <- unique(da$exposure)
 exp_code <- "NDA_all"
 
+da <- read_tsv(paste0(data_path_tophits, "nondense_area_unadj_tophits.tsv")) 
+exposure_name <- unique(da$exposure)
+exp_code <- "NDA_unadj"
+
 # percent density
 da <- read_tsv(paste0(data_path_tophits, "percent_density_tophits.tsv"))
 exposure_name <- unique(da$exposure)
@@ -67,6 +75,11 @@ exp_code <- "PD"
 da <- read_tsv(paste0(data_path_tophits, "percent_density_tophits_all.tsv")) 
 exposure_name <- unique(da$exposure)
 exp_code <- "PD_all"
+
+da <- read_tsv(paste0(data_path_tophits, "percent_density_unadj_tophits.tsv")) 
+exposure_name <- unique(da$exposure)
+exp_code <- "PD_unadj"
+
 
 ```
 
