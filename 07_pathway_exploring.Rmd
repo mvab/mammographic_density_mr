@@ -43,7 +43,7 @@ source("functions.R")
 
 ```{r}
 # dense
-exp_code <- "DA_all" 
+exp_code <- "NDA_unadj" 
 cluster_df <-read_tsv(paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
 
 ```
@@ -60,7 +60,7 @@ if (!grepl("all", exp_code)){exp_code_fuma <- paste0(exp_code, "_all")} else{ ex
 snpstxt <- read_tsv(paste0(results_path, "FUMA/FUMA_", exp_code_fuma, "/snps.txt")) # we FUMA-s all gws SNPs, but leftjoin will keep only what is needed if we are workign with a subset
 
 cluster_df <-cluster_df %>% left_join(snpstxt %>% dplyr::select(rsID, geneFUMA=nearestGene), by = "rsID")
-cluster_df_genes<- cluster_df %>% dplyr::select(cluster=ID, geneFUMA) %>% distinct()
+cluster_df_genes<- cluster_df %>% dplyr::select(cluster, geneFUMA) %>% distinct()
 cluster_df_genes %>% count(geneFUMA,sort=T)
 
 ### updating rsids that have been updated: (NDA data specific)
@@ -78,7 +78,7 @@ grof_res <- gprofiler2::gsnpense(query =unique(cluster_df$rsID)) %>%
 # just check
 cluster_df_tmp<- left_join(cluster_df, grof_res, by ="rsID")
 cluster_df_genes2<- cluster_df_tmp %>% 
-                    dplyr::select(cluster=ID, geneFUMA, gprofiler_gene) %>% distinct()
+                    dplyr::select(cluster, geneFUMA, gprofiler_gene) %>% distinct()
 ```
 
 
@@ -122,7 +122,7 @@ cluster_df_multi<- left_join(cluster_df, grof_res, by ="rsID") %>%  # fuma +gpro
                     left_join(., eqtl1_sub_selected_tissues, by =c("rsID"="rsid")) # . + eQTL
 
 cluster_df_genes3<- cluster_df_multi %>% 
-  dplyr::select(cluster=ID, rsID, geneFUMA, gprofiler_gene, eQTL_gene, everything()) %>%
+  dplyr::select(cluster, rsID, geneFUMA, gprofiler_gene, eQTL_gene, everything()) %>%
   distinct() 
 # save version with tissues 
 write_tsv(cluster_df_genes3, 
