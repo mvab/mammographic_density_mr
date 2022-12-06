@@ -313,6 +313,8 @@ pd_merged<- read_tsv(paste0(results_path, current_trait_category, "/compare_PD_a
 ## MD from shared data
 
 ```{r message=F}
+## NOT USED##
+
 current_trait_category <- "md_unadj"
 
 dat_all<-tibble()
@@ -392,6 +394,8 @@ dat_all2 <- read_tsv( paste0(results_path, current_trait_category, "/mvmr/merged
 
 
 ```{r}
+### USINGTHIS ONE (see one down for using direct estimates)
+
 # other plot version
 dat_all2 <- dat_all %>% select(exposure, outcome, or, or_lci95, or_uci95, OR_CI) %>% 
   mutate(outcome = case_when(outcome =="Breast cancer 2020" ~ "BCAC 2020",
@@ -477,69 +481,80 @@ ggforestplot::forestplot(
 ```
 
 
-
-
-
-
-
 ```{r}
-###UNIVARIBALE --- md subtypes (not part of this project!)
+### same as main plot but also with  direct estimates: 
+dat_direct <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-md_unadj-to-BCAC.tsv")) %>%  # made in 04
+              filter(exposure != "Childhood body size") %>% 
+              filter(outcome!= "BRCA1_TN") %>% 
+              select(exposure, outcome, or, or_lci95, or_uci95) %>% 
+              mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                              ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) %>% 
+              mutate(outcome = case_when(outcome =="Breast cancer (new)" ~ "BCAC 2020",
+                                         outcome =="Breast cancer" ~ "BCAC 2017",
+                                         outcome =="ER+ breast cancer" ~ "ER+",
+                                         outcome =="ER- breast cancer" ~ "ER-",
+                                                       outcome =="Luminal A"    ~ "Luminal A",   
+                                                       outcome =="Luminal B, HER2+"   ~ "Luminal B1",  
+                                                       outcome =="Luminal B, HER2-" ~ "Luminal B2" ,
+                                                       outcome =="HER2-enriched"  ~ "HER2-enriched" ,
+                                                       outcome =="TN Basal"  ~ "TNBC" )) %>% 
+               mutate(outcome = factor(outcome, 
+                                      levels = c("BCAC 2017","BCAC 2020",
+                                                 "ER+", "ER-",
+                                                 "Luminal A", "Luminal B1", "Luminal B2", 
+                                                  "HER2-enriched", "TNBC" )),
+                     outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
+              mutate(effect = "Direct effect \n (accounted for childhood body size)")
+  
+dat_total <- dat_all2 %>% 
+              mutate(effect = "Total effect") %>% distinct()
 
-all.files <- list.files(path = paste0(results_path, "md_traits_sub_run_prev/"), pattern = "merged_mr_mediators_*", full.names = T)
-l <- lapply(all.files, read_tsv)
+dat_merged <- bind_rows(dat_total, dat_direct) %>%   
+  mutate(exposure = factor(exposure, levels= rev(c("Dense area", "Non-dense area", "Percent density")))) %>% 
+  mutate(effect = factor(effect, levels= c(  "Total effect", "Direct effect \n (accounted for childhood body size)")))
 
-dat<-
-  bind_rows(l) %>% 
-  filter(method %in% c("Inverse variance weighted")) %>% 
-  select(-id.outcome, -method) %>% 
-  mutate(OR_CI =  paste0(round(or,2), " [",round(or_lci95,2) ,":",round(or_uci95,2), "]")) %>%   mutate(md_type = case_when(grepl("non-dense", exposure) ~ 'Non-dense',
-                             grepl("Percent", exposure) ~ 'Per cent', 
-                             TRUE ~ 'Dense')) %>% 
-  select(exposure,md_type, outcome, OR_CI, everything()) %>% 
-  filter(outcome != 'CIMBA_BRCA1_BCAC_TN')
+  
 
+pal<-(c(unname(yarrr::piratepal("pony"))))
+pal[6:7]<-c('darkgrey', "#FFEA5E")
+p<-ggplot(dat_merged,
+           aes(y=exposure, x=or,  colour=outcome, shape = effect_direction)) +
+  geom_point(aes(size = effect), 
+             position = ggstance::position_dodgev(height = 0.7))+
+  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.1, 
+            position = ggstance::position_dodgev(height = 0.7)) +
 
-dat<- dat %>% mutate(outcome = case_when(
-               outcome == "Breast cancer" ~ "BCAC_full" ,                   
-               outcome == "ER+ Breast cancer" ~ "BCAC_ER+",               
-               outcome == "ER- Breast cancer" ~ "BCAC_ER-",               
-               outcome == "CIMBA_BRCA1_BCAC_TN" ~ "BCAC_CIMBA_BRCA1_TN" ,                
-               outcome == "Breast cancer (overall BCAC 2020)" ~ "BCAC_full_new",
-               outcome == "HER2 enriched" ~ "BCAC_HER2_enriched" ,                   
-               outcome == "Luminal A" ~ "BCAC_Luminal_A",                       
-               outcome == "Luminal B" ~ "BCAC_Luminal_B",                       
-               outcome == "Luminal B-HER2 negative" ~ "BCAC_Luminal_B-HER2_negative",         
-               outcome == "TNBC Basal-like" ~ "BCAC_TNBC_Basal-like",
-               TRUE ~ "x")) %>% 
-  mutate(outcome = factor(outcome, levels = c('BCAC_full', "BCAC_full_new", 
-        "BCAC_ER-","BCAC_ER+","BCAC_HER2_enriched" , "BCAC_Luminal_A",
-        "BCAC_Luminal_B","BCAC_Luminal_B-HER2_negative",  "BCAC_TNBC_Basal-like" )) ) 
-
-dat %>% kable_it()
-
-dat %>% write_csv(paste0(results_path, "md_traits/merged_all_MD_BCAC.tsv"))
-
-
-# rearrange to be in the required order
-dat<-dat %>% mutate(md_type=as.factor(md_type))
-dat$md_type <- forcats::fct_inorder(dat$md_type) %>% forcats::fct_rev() 
-
-pal <- wes_palette("Zissou1")[c(1,3,5)]
-#dat$mr <- forcats::fct_rev(dat$mr) 
-p2<-ggplot(dat, aes(y=md_type, x=or, label=outcome, colour=exposure)) +
-  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.3) +
-  geom_point(size=2)+
-  geom_text(aes(label=OR_CI),hjust=-0.1, vjust=-0.6, size =2.3, color = 'darkgrey')+
+  theme_minimal_vgrid(11)+
+  panel_border()+
   scale_color_manual(values=pal)+
-  #scale_shape_manual(values = c(16,20, 5)) +
+  scale_shape_manual(values=c(16,1))+
+  scale_size_manual(values=c(3.5, 2.5))+
+  scale_x_continuous(breaks=c(0,1,2,3))+
+
+  theme(strip.text = element_text(face = 'bold'),
+        strip.text.y = element_text(face = 'bold'),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(),
+        )+
   geom_vline(xintercept=1, linetype='longdash') +
-  theme_minimal_hgrid(9, rel_small = 1) +
-  facet_wrap(~outcome, ncol=1)+
-  labs(color = "",y = "", x = "Odds ratio",
-       title= paste0("        Univariable MR results --- old") )+
-   #xlim(0.3, 2.1)+
-  theme(legend.position = "none", panel.grid.major.x = element_line())
+
+  facet_grid(cols=vars(effect))+
+  labs(color = "Outcome",y = "", x = "OR", shape="")+
+  theme(legend.position = "right", legend.direction = "vertical", 
+        plot.title.position = "plot")+
+  guides(colour = guide_legend(reverse = TRUE), shape="none", size="none")
 
 
 ```
+
+```{r}
+# plot of CBMI direct effect on each BC type, accounted for MD phenos, VS total effect
+
+
+
+
+
+```
+
+
 

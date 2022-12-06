@@ -84,8 +84,8 @@ results_path_sub <-   paste0(results_path, current_trait_category, "/")
 
 run_sens = F
 
-run_analysis_1 = T
-run_analysis_2 = F
+run_analysis_1 = F
+run_analysis_2 = T
 run_analysis_3 = F
 run_analysis_4 = F
 
@@ -550,7 +550,7 @@ if(!dir.exists(mvmr_merged_dir_w_backslash)){ system(paste("mkdir -p", mvmr_merg
 
 # this is a list of MVMR types to cycle through
 mvmr_types <- c( "mvmr_BMIs-", "mvmr_earlyBMI-", "mvmr_adultBMI-", "mvmr_adultBMIearlyBMI-")
-mvmr_types <- c( "mvmr_adultBMI-", "mvmr_adultBMIearlyBMI-")
+mvmr_types <- c("mvmr_earlyBMI-")
 
 # for each mvmr type, load all indiv trait files, merge, save
 for (mvmr_type in mvmr_types) {
