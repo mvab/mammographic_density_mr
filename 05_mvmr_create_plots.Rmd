@@ -123,13 +123,13 @@ dat_BMI <- bind_rows(dat_BMI, dat)
 # read cBMI direct effct after accounting for all MDs
 direct_data <- 
   read_tsv( paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-md_unadj-to-BCAC.tsv")) %>% 
-  mutate(mediator = case_when(mediator=="dense_area" ~ "MD dense area",
-                              mediator=="nondense_area" ~ "MD non-dense area",
-                              mediator=="percent_density" ~ "MD percent density")) %>% 
+  mutate(mediator = case_when(mediator=="dense_area_unadj" ~ "Dense area",
+                              mediator=="nondense_area_unadj" ~ "Non-dense area",
+                              mediator=="percent_density_unadj" ~ "Percent density")) %>% 
   filter(exposure == "Childhood body size") %>% 
   filter(outcome != "BRCA1_TN") %>% 
-  mutate(exposure = paste0(exposure, " accounted for ", mediator)) %>% 
-  select(exposure, outcome, starts_with("or", ignore.case = F)) %>% 
+  mutate(exposure = paste0(exposure, "\n accounted for\n ", mediator)) %>% 
+  select(exposure, outcome,  b, se, pval, starts_with("or", ignore.case = F)) %>% 
   mutate(outcome = case_when(outcome =="Breast cancer" ~ "BCAC 2017",
                              outcome =="Breast cancer (new)" ~ "BCAC 2020",
                              outcome =="ER+ breast cancer" ~ "ER+",
@@ -145,7 +145,7 @@ direct_data <-
 total_data<- 
   read_csv(paste0(results_path, "univariableMR_BMI_BCACall.tsv")) %>% 
   filter(exposure == 'Childhood BMI') %>% 
-  select(exposure, outcome, starts_with("or", ignore.case = F)) %>% 
+  select(exposure, outcome, pval, b, se, starts_with("or", ignore.case = F)) %>% 
   mutate(exposure = "Childhood body size") %>% 
   filter(outcome != "TNBC_CIMBA_BRCA1") %>% 
   mutate(outcome = case_when(outcome =="Breast cancer" ~ "BCAC 2017",
@@ -163,27 +163,37 @@ all_data <- bind_rows(total_data, direct_data) %>%
    mutate(outcome = factor(outcome, levels = c("BCAC 2017","BCAC 2020",
                                      "ER+", "ER-",
                                      "Luminal A", "Luminal B1", "Luminal B2", 
-                                      "HER2-enriched", "TNBC" ))) %>% 
-         #outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
+                                      "HER2-enriched", "TNBC" )),
+         outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
   mutate(effect = ifelse(exposure == "Childhood body size", "total", "direct")) %>% 
   mutate(exposure = factor(exposure, levels= c(
-    "Childhood body size",   "Childhood body size accounted for MD dense area",   
-    "Childhood body size accounted for MD non-dense area",  "Childhood body size accounted for MD percent density")))
+    "Childhood body size",   "Childhood body size\n accounted for\n Dense area",   
+    "Childhood body size\n accounted for\n Non-dense area",  "Childhood body size\n accounted for\n Percent density")))
 
 pal = wesanderson::wes_palette("GrandBudapest1")
-pal = c('steelblue', pal[c(3,2,1)])
-qq<-ggplot(all_data, aes(y=rev(exposure), x=or, label=outcome, colour=exposure)) +
+#pal = c('steelblue', pal[c(3,2,1)])
+#
+
+#### DOES NOT WORK ATM - can figure out the stupif grid pacement -- see ggforest below! (tmp wokrs)
+
+qq<-ggplot(all_data, aes(y=rev(exposure), x=or, label=outcome, colour=outcome)) +
   geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.3) +
   geom_point(size=2)+
+  #geom_point(size=2, 
+  #           position = ggstance::position_dodgev(height = 0.9))+
+  #geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.1, 
+  #          position = ggstance::position_dodgev(height = 0.9)) +
   geom_vline(xintercept=1, linetype='longdash') +
   theme_minimal_hgrid(10) +
   scale_x_continuous(breaks=seq(0.5,1.1,0.1))+
-  scale_color_manual(values=pal)+
+  #scale_color_manual(values=pal)+
   scale_y_discrete(position = "right")+
   theme(strip.text = element_text(face = 'bold'))+
-  facet_wrap(outcome ~ ., scale="free_y",  ncol = 1)+
+  # version 1 facet_wrap(outcome ~ ., scale="free_y",  ncol = 1)+
+  # version 2 facet_wrap(exposure~ ., nrow=4)+
+  facet_grid(rows=vars(outcome), cols=vars(exposure), scales = "free") +
   labs(color = "",y = "", x = "Odds ratio", subtitle="" )+
-  theme(legend.position = "bottom",
+  theme(legend.position = "none",
         legend.direction = "vertical", 
         axis.text.y=element_blank()) #remove y axis labels
   
@@ -195,4 +205,15 @@ ggsave(paste0("figures/mvmr_earlyBMI-", current_trait_category, "-to-BCAC_", bc_
        width=15, height=15,
        #width=10, height=5,
        units=c("cm"), dpi=300, limitsize=F)
+
+
+ggforestplot::forestplot(
+  df = all_data,
+  name=exposure,
+  estimate = b,
+  pvalue = pval,
+  logodds = F,
+  xlab = "OR",
+  colour = outcome
+)
 ```
