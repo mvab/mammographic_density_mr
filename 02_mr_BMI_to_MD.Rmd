@@ -101,6 +101,10 @@ for (i in 1:length(mediators)){
                           outcome_dat = outcome_mediator_early)
   dat_adult <- harmonise_data(exposure_dat = adult_bmi_exp, 
                           outcome_dat = outcome_mediator_adult)
+  
+  streiger_early =  calc_steiger(dat_early, exposure_ss = 246511, outcome_ss = 24192) 
+  streiger_adult =  calc_steiger(dat_adult, exposure_ss = 206658, outcome_ss = 24192) 
+
 
   # Perform MR
   res_early <- mr(dat_early, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) 
@@ -126,9 +130,11 @@ for (i in 1:length(mediators)){
   # Pleiotropy and Heterogeneity
   out_sensitivity<- rbind(
     full_join(mr_pleiotropy_test(dat_early),
-              mr_heterogeneity(dat_early, method_list=c("mr_egger_regression", "mr_ivw"))),
+              mr_heterogeneity(dat_early, method_list=c("mr_egger_regression", "mr_ivw"))) %>% 
+      left_join(streiger_early$summary),
     full_join(mr_pleiotropy_test(dat_adult),
-              mr_heterogeneity(dat_adult, method_list=c("mr_egger_regression", "mr_ivw"))) 
+              mr_heterogeneity(dat_adult, method_list=c("mr_egger_regression", "mr_ivw"))) %>% 
+      left_join(streiger_adult$summary)
   )  %>% select(-c("id.outcome", "id.exposure"))       
   
   
