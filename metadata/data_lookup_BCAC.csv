@@ -1,11 +1,11 @@
-trait,original_file,full_data,trait_file_name,mr.base.id
-Breast cancer ,NA,NA,full,ieu-a-1126
-ER+ breast cancer,NA,NA,ER+,ieu-a-1127
-ER- breast cancer,NA,NA,ER-,ieu-a-1128
-Breast cancer (new),icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,fullnewBCAC_tidy_GWAS_outcome.txt.gz,full_new,NA
-Luminal A,icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,Luminal_A_tidy_GWAS_outcome.txt.gz,Luminal_A,NA
-"Luminal B, HER2-",icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,Luminal_B-HER2_negative_tidy_GWAS_outcome.txt.gz,Luminal_B-HER2_negative,NA
-"Luminal B, HER2+",icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,Luminal_B_tidy_GWAS_outcome.txt.gz,Luminal_B,NA
-HER2-enriched,icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,HER2_enriched_tidy_GWAS_outcome.txt.gz,HER2_enriched,NA
-TN Basal,icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,TNBC_Basal-like_tidy_GWAS_outcome.txt.gz,TNBC_Basal-like,NA
-BRCA1_TN,CIMBA_BRCA1_BCAC_TN_meta_summary_stats_zhang_2020.zip,CIMBA_BRCA1_BCAC_TN_tidy_GWAS_outcome.txt.gz,CIMBA_BRCA1_TN,NA
+trait,original_file,full_data,trait_file_name,mr.base.id,sample.size,ncase,ncontrol
+Breast cancer ,NA,NA,full,ieu-a-1126,228951,122977,105974
+ER+ breast cancer,NA,NA,ER+,ieu-a-1127,175475,69501,105974
+ER- breast cancer,NA,NA,ER-,ieu-a-1128,127442,21468,105974
+Breast cancer (new),icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,fullnewBCAC_tidy_GWAS_outcome.txt.gz,full_new,NA,247173,133384,113789
+Luminal A,icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,Luminal_A_tidy_GWAS_outcome.txt.gz,Luminal_A,NA,155244,63767,91477
+"Luminal B, HER2-",icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,Luminal_B-HER2_negative_tidy_GWAS_outcome.txt.gz,Luminal_B-HER2_negative,NA,107419,15942,91477
+"Luminal B, HER2+",icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,Luminal_B_tidy_GWAS_outcome.txt.gz,Luminal_B,NA,107419,15942,91477
+HER2-enriched,icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,HER2_enriched_tidy_GWAS_outcome.txt.gz,HER2_enriched,NA,102105,10628,91477
+TN Basal,icogs_onco_meta_intrinsic_subtypes_summary_level_statistics_colsubset.txt.zip,TNBC_Basal-like_tidy_GWAS_outcome.txt.gz,TNBC_Basal-like,NA,100079,8602,91477
+BRCA1_TN,CIMBA_BRCA1_BCAC_TN_meta_summary_stats_zhang_2020.zip,CIMBA_BRCA1_BCAC_TN_tidy_GWAS_outcome.txt.gz,CIMBA_BRCA1_TN,NA,,,
