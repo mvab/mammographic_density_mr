@@ -29,7 +29,7 @@ set_paths(currently_working_env)
 
 # metafile
 data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
-bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) 
+bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) %>% filter(!grepl("BRCA1", trait))
 
 # load functions
 source("functions.R")
