@@ -1,0 +1,110 @@
+---
+title: "supl data collect"
+author: "Marina Vabistsevits"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(data.table)
+library(vroom)
+
+library(tidyr)
+library(purrr)
+library(tibble)
+library(dplyr)
+```
+
+```{r}
+# set path for pre-calculated data, outside the code repo
+# `local` / `remote` (reading data from RDSF)
+currently_working_env = "local"
+source("../set_paths.R")
+set_paths(currently_working_env)
+
+# metafile
+data_lookup<-read_csv(paste0("../metadata/data_lookup.csv")) 
+
+# load functions
+source("../functions.R")
+```
+
+# Collecting univarible MR results
+```{r}
+## for md_unadj
+
+# bmi -> md
+current_trait_category <- "md_unadj" 
+bmi_to_md <-      read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-md_unadj.tsv"))
+bmi_to_md_sens <- read_tsv(paste0(results_path, current_trait_category, "/merged_sens_mr_BMI-to-md_unadj.tsv"))
+
+
+# md -> bc
+ind_res_dir <- paste0(results_path, current_trait_category)
+all.files_mr <- list.files(path = ind_res_dir, pattern = "merged_mr_mediators_*", full.names = T)
+
+l <- lapply(all.files_mr, read_tsv)
+md_to_bc <- l %>% reduce(rbind) %>% 
+ mutate(outcome = case_when(outcome =="Breast cancer" ~ "BCAC 2020",
+                             outcome =="ER+ Breast cancer" ~ "ER+ Breast cancer",
+                             outcome =="ER- Breast cancer" ~ "ER- Breast cancer",
+                             outcome =="Luminal A"    ~ "Luminal A",   
+                             outcome =="Luminal B"   ~ "Luminal B1",  
+                             outcome =="Luminal B-HER2 negative" ~ "Luminal B2" ,
+                             outcome =="HER2 enriched"  ~ "HER2-enriched" ,
+                             outcome =="TNBC Basal-like"  ~ "TNBC" )) %>% 
+  mutate(outcome = ifelse(id.outcome == 'ieu-a-1126', "BCAC 2017", outcome)) %>% 
+  select(exposure, outcome, method, nsnp, or, or_lci95, or_uci95, pval) %>% 
+  arrange(outcome, exposure)
+
+
+ind_res_dir <- paste0(results_path, current_trait_category)
+all.files_mr <- list.files(path = ind_res_dir, pattern = "merged_sens_mr_mediators_*", full.names = T)
+
+l <- lapply(all.files_mr, read_tsv)
+md_to_bc_sens <- l %>% reduce(rbind) %>% 
+ mutate(outcome = case_when(outcome =="Breast cancer" ~ "BCAC 2020",# bcac 2017 is manually added to file
+                             outcome =="ER+ Breast cancer" ~ "ER+ Breast cancer",
+                             outcome =="ER- Breast cancer" ~ "ER- Breast cancer",
+                             outcome =="Luminal A"    ~ "Luminal A",   
+                             outcome =="Luminal B"   ~ "Luminal B1",  
+                             outcome =="Luminal B-HER2 negative" ~ "Luminal B2" ,
+                             outcome =="HER2 enriched"  ~ "HER2-enriched" ,
+                             outcome =="TNBC Basal-like"  ~ "TNBC" ,
+                             TRUE ~ outcome)) %>% 
+  select(exposure, outcome, everything()) %>% 
+  arrange(outcome, exposure)
+
+
+# aaM -> md
+aam_to_md <-  read_tsv(paste0(results_path, current_trait_category, "/", current_trait_category, "_w_traits_biMR_results.tsv")) %>% 
+              filter(exposure == "Age when periods started (menarche)") %>% 
+              mutate(exposure = ifelse(exposure == "Age when periods started (menarche)", "Age at menarche", exposure)) %>%
+              select(exposure, outcome, method, nsnp, or, or_lci95, or_uci95, pval) %>% 
+              arrange(outcome, exposure)
+
+aam_to_md_sens <-  read_tsv(paste0(results_path, current_trait_category, "/", current_trait_category, "_w_traits_biMR_results_sens.tsv")) %>% 
+              filter(exposure == "Age when periods started (menarche) || id:ukb-b-3768") %>% 
+              mutate(exposure = ifelse(exposure == "Age when periods started (menarche) || id:ukb-b-3768", "Age at menarche", exposure)) %>% 
+              select(exposure, outcome, everything(), -dir)
+
+
+### MVMR
+
+#aaM+md -> BC 
+mvmr_aaM_md_to_bc <- read_tsv(paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI_unadjMD.tsv"))
+mvmr_aaM_md_to_bc_sens <- read_tsv( paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_unadjMD.tsv"))
+
+# cbmi+abmi -> md
+mvmr_BMIs_to_md <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_BMIs-md_unadj-to-BCAC.tsv"))
+mvmr_BMIs_to_md_sens <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_mvmr_sens_BMIs-md_unadj-to-BCAC.tsv"))
+
+
+# cbmi + md -> bc
+mvmr_cBMIs_md_to_bc <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-md_unadj-to-BCAC.tsv"))
+mvmr_cBMIs_md_to_bc_sens <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_mvmr_sens_earlyBMI-md_unadj-to-BCAC.tsv"))
+
+```
+
