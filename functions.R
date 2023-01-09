@@ -25,8 +25,16 @@ calc_steiger <- function(harmonised, exposure_ss, outcome_ss, outcome_ncase = NA
   harmonised$samplesize.exposure <- exposure_ss
   harmonised$samplesize.outcome <- outcome_ss 
   
+  if (NA %in% harmonised$eaf.outcome){
+    # if eaf is not available for outcome GWAS, we can't apply r_func below, so we will treat this data as continuous
+    print("EAF not available; can't analyses outcome as binary for steiger filtering")
+    outcome_ncase = NA
+    outcome_ncontrol =NA
+  }
+  
   if (!is.na(outcome_ncase) & !is.na(outcome_ncontrol)){
     # if outcome case/control is provided, calculate prevalence and add everything to harmonised 
+    # this is done for binary outcome analyses
     prevelance = outcome_ncase / (outcome_ncase + outcome_ncontrol)
     harmonised$ncase.outcome = outcome_ncase
     harmonised$ncontrol.outcome = outcome_ncontrol
