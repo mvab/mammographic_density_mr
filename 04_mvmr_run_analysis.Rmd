@@ -26,7 +26,6 @@ set_paths(currently_working_env)
 
 # metafile
 data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
-#phenocor_matrix<-read_tsv(paste0("metadata/pheno_correlations.tsv")) 
 bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) 
 
 # load functions
@@ -82,10 +81,10 @@ mediators <- data_lookup %>% filter(trait_category == current_trait_category) %>
 ```{r message= F}
 results_path_sub <-   paste0(results_path, current_trait_category, "/")
 
-run_sens = F
+run_sens = T
 
-run_analysis_1 = F
-run_analysis_2 = T
+run_analysis_1 = T
+run_analysis_2 = F
 run_analysis_3 = F
 run_analysis_4 = F
 
@@ -186,6 +185,45 @@ for (j in 1:length(bcac_lookup$trait)){
       
       write_tsv(mv_res_bmis, paste0(mvmr_dir, "mvmr_BMIs-", mediator_file_name, "_using_2SMR.tsv"))
       
+      
+      ## sensitivity analysis
+      
+      if (run_sens){
+        print("Doing sensitivity analysis")
+        
+        mvmr_input <- make_mvmr_input(exposure_dat, outcome.data = outcome_dat)
+
+        # format data to be in MVMR package-compatiable df
+        mvmr_out <- format_mvmr(BXGs = mvmr_input$XGs %>% select(contains("beta")),  # exposure betas
+                                BYG = mvmr_input$YG$beta.outcome,                        # outcome beta
+                                seBXGs = mvmr_input$XGs %>% select(contains("se")),      # exposure SEs
+                                seBYG = mvmr_input$YG$se.outcome,                        # outcome SEs
+                                RSID = mvmr_input$XGs$SNP)                               # SNPs
+     
+        ## Sensitivity tests
+        # find phenotypic correlation value in table and estimate gencov
+        print(paste0("Using phenocor for calculating Fst"))
+        pheno_corr_bmi =  0.197457971 # externally calculated value
+        pheno_mat = matrix(c(1, pheno_corr_bmi, pheno_corr_bmi, 1), nrow=2, ncol=2)
+        colnames(pheno_mat) = rownames(pheno_mat) = c("Childhood BMI", 'Adult BMI')
+        print(pheno_mat)
+        #extract SE matrix
+        se_matrix <- mvmr_out %>% as_tibble() %>% select(contains("sebetaX")) %>% as.data.frame()
+        #estimate gencov
+        gen_cov <- phenocov_mvmr(Pcov = as.matrix(pheno_mat), seBXGs = se_matrix)
+          #Test for weak instruments
+        sres <- strength_mvmr(r_input=mvmr_out, gencov=gen_cov)
+        colnames(sres) = paste(c("Childhood BMI", 'Adult BMI'), "(Fst)")
+        print(sres)
+        #Test for horizontal pleiotropy
+        pres <- pleiotropy_mvmr(r_input=mvmr_out, gencov=gen_cov)
+        mvmr_sens_df <- sres
+        mvmr_sens_df$Qstat <- pres$Qstat
+        mvmr_sens_df$Qpval <- pres$Qpval
+        mvmr_sens_df$trait <- unique(outcome_dat$outcome)
+        write_tsv(mvmr_sens_df, paste0(mvmr_dir, "mvmr_sens_BMIs-", mediator_file_name, "_using_2SMR.tsv"))
+      }
+      
       rm(exposure_list, full_gwas_list, exposure_dat, outcome_dat)
     }  
     #
@@ -241,6 +279,8 @@ for (j in 1:length(bcac_lookup$trait)){
       ## sensitivity analysis
       
       if (run_sens) {
+         print("Doing sensitivity analysis")
+
         # create MVMR package input
         if (outcome_source == 'outcome_mrbase'){
           # specify mrbase id
@@ -550,7 +590,7 @@ if(!dir.exists(mvmr_merged_dir_w_backslash)){ system(paste("mkdir -p", mvmr_merg
 
 # this is a list of MVMR types to cycle through
 mvmr_types <- c( "mvmr_BMIs-", "mvmr_earlyBMI-", "mvmr_adultBMI-", "mvmr_adultBMIearlyBMI-")
-mvmr_types <- c("mvmr_earlyBMI-")
+mvmr_types <- c("mvmr_BMIs-", "mvmr_earlyBMI-")
 
 # for each mvmr type, load all indiv trait files, merge, save
 for (mvmr_type in mvmr_types) {
@@ -560,7 +600,6 @@ for (mvmr_type in mvmr_types) {
   # select type
   mvmr_files_type <- mvmr_files[grepl(mvmr_type, mvmr_files )]
   
-
   
   print(paste0("Reading data from analysis: ", mvmr_type))
   
@@ -575,7 +614,46 @@ for (mvmr_type in mvmr_types) {
 }
 ```
 
+# Merge sens analyses
 
+```{r message=FALSE}
+# select trait category
+current_trait_category <- "md_unadj"
+mvmr_files <- list.files(path = paste0(results_path, current_trait_category, '/mvmr'), full.names = T)
+# drop sensitivity files and BMI
+mvmr_files <- mvmr_files[grepl('sens', mvmr_files)]
+
+# make sure this dir exists : 02_Results/sleep_trairs/mvmr/merged
+mvmr_merged_dir <- paste0(results_path_sub, "mvmr/merged/")
+mvmr_merged_dir_w_backslash <- gsub(" ", "\\ ", mvmr_merged_dir, fixed=T) # create path vector escaping spaces, otherwise system call cant process it
+if(!dir.exists(mvmr_merged_dir_w_backslash)){ system(paste("mkdir -p", mvmr_merged_dir_w_backslash))}
+
+
+# this is a list of MVMR types to cycle through
+#mvmr_types <- c( "mvmr_BMIs-", "mvmr_earlyBMI-", "mvmr_adultBMI-", "mvmr_adultBMIearlyBMI-")
+mvmr_types <- c("mvmr_sens_BMIs-", "mvmr_sens_earlyBMI-")
+
+# for each mvmr type, load all indiv trait files, merge, save
+for (mvmr_type in mvmr_types) {
+
+  print(paste0("Current trait category: ", current_trait_category))
+  
+  # select type
+  mvmr_files_type <- mvmr_files[grepl(mvmr_type, mvmr_files )]
+  
+  
+  print(paste0("Reading data from analysis: ", mvmr_type))
+  
+  # read all individual mediators
+  l <- lapply(mvmr_files_type, read_tsv, show_col_types = FALSE)
+  df <- l %>% purrr::reduce(bind_rows) 
+  
+  file_prefix <- paste0(mvmr_type, current_trait_category, "-to-BCAC")
+  write_tsv(df, paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_", file_prefix, ".tsv"))
+  print(paste0(" -> Merged and saved."))
+
+}
+```
 
 
 
