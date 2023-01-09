@@ -77,17 +77,17 @@ get_mv_exposures <- function(exposure_list, full_gwas_list, clump_exposures=FALS
 
 
 #  function to convert 2SMR format into MVMR format
-make_mvmr_input <- function(exposure_dat, outcome.id.mrbase="", outcome.data=""){
+make_mvmr_input <- function(exposure_dat, outcome.id.mrbase=NULL, outcome.data=NULL) {
   # provide exposure_dat created in the same way as for TwoSampleMR 
   # also specify the outcome argument [only ONE!] (MR-base ID or full gwas data in .outcome format)
   
   # extract SNPs for both exposures from outcome dataset
   # (for the selected option mr.base or local outcome data)
-  if (outcome.id.mrbase != "") {
+  if (!is.null(outcome.id.mrbase )) {
     # if mrbase.id is provided
     outcome_dat <- extract_outcome_data(snps = unique(exposure_dat$SNP),
                                         outcomes = outcome.id.mrbase)
-  } else if (outcome.data != ""){
+  } else if (!is.null(outcome.data)){
     # if outcome df is provided
     outcome_dat <- outcome.data %>% filter(SNP %in% exposure_dat$SNP)
   }
