@@ -109,6 +109,9 @@ for (i in 1:length(bcac_lookup$trait)){
     breast_cancer_data  <- vroom(paste0(data_path_gwas, outcome_name)) 
   }
   outcome_trait_name = bcac_lookup$trait_file_name[i]
+  outcome_sample_size =  bcac_lookup$sample.size[i]
+  outcome_ncase = bcac_lookup$ncase[i]
+  outcome_ncontrol = bcac_lookup$ncontrol[i]
 
   outcomes <- lapply(data_list, extract_outcome_data_custom, breast_cancer_data, outcome_source)
   
@@ -124,6 +127,15 @@ for (i in 1:length(bcac_lookup$trait)){
   for (i in 1:length(data_list)){
      harmonise_l[[i]] <- harmonise_data(exposure_dat = data_list[[i]], 
                                         outcome_dat = outcomes[[i]])
+  }
+  
+  steiger_l <- list()
+  for (i in 1:length(data_list)){
+     steiger_l[[i]] <- calc_steiger(harmonise_l[[i]], 
+                                    exposure_ss = 24192,
+                                    outcome_ss = outcome_sample_size, 
+                                    outcome_ncase = outcome_ncase,
+                                    outcome_ncontrol = outcome_ncase)$summary
   }
   
   # Pleiotropy and Heterogeneity
@@ -176,7 +188,15 @@ for (i in 1:length(bcac_lookup$trait)){
         reduce(rbind) %>% 
         split_outcome() %>%
         separate(outcome, "outcome", sep="[(]") %>% 
-        select(-c("id.exposure", "id.outcome")) 
+        select(-c("id.exposure")) 
+  
+  dat_steiger <- steiger_l %>% 
+        reduce(rbind) %>% 
+        separate(outcome, "outcome", sep="[(]") 
+  
+  dat_sensitivity <- left_join(dat_sensitivity, dat_steiger, by = c("exposure" = "exposure", "outcome"="outcome"))
+  
+  
   
   # save sensitivity analyses results
   write_tsv(dat_sensitivity, paste0(ind_res_dir,"merged_sens_mr_mediators_", current_trait_category,"-to-BCAC_", outcome_trait_name,".tsv"))
