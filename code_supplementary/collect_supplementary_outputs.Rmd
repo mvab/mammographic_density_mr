@@ -40,7 +40,7 @@ source("../functions.R")
 # bmi -> md
 current_trait_category <- "md_unadj" 
 bmi_to_md <-      read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-",current_trait_category,".tsv")) %>% 
-                  select(-starts_with("or"))
+                  select(-starts_with("or")) %>% select(exposure, outcome, everything())
 bmi_to_md_sens <- read_tsv(paste0(results_path, current_trait_category, "/merged_sens_mr_BMI-to-",current_trait_category,".tsv"))
 
 
@@ -60,7 +60,8 @@ md_to_bc <- l %>% reduce(rbind) %>%
                              outcome =="TNBC Basal-like"  ~ "TNBC" )) %>% 
   mutate(outcome = ifelse(id.outcome == 'ieu-a-1126', "BCAC 2017", outcome)) %>% 
   select(exposure, outcome, method, nsnp, or, or_lci95, or_uci95, pval) %>% 
-  arrange(outcome, exposure)
+  arrange(outcome, exposure) %>% 
+  mutate(pval_0.05 = ifelse(pval < 0.051, 1, 0))
 
 
 ind_res_dir <- paste0(results_path, current_trait_category)
@@ -77,6 +78,7 @@ md_to_bc_sens <- l %>% reduce(rbind) %>%
                              outcome =="HER2 enriched"  ~ "HER2-enriched" ,
                              outcome =="TNBC Basal-like"  ~ "TNBC" ,
                              TRUE ~ outcome)) %>% 
+  mutate(outcome = ifelse(id.outcome == 'ieu-a-1126', "BCAC 2017", outcome)) %>% 
   select(exposure, outcome, everything()) %>% 
   arrange(outcome, exposure)
 
@@ -85,7 +87,8 @@ md_to_bc_sens <- l %>% reduce(rbind) %>%
 aam_to_md <-  read_tsv(paste0(results_path, current_trait_category, "/", current_trait_category, "_w_traits_biMR_results.tsv")) %>% 
               filter(exposure == "Age when periods started (menarche)") %>% 
               mutate(exposure = ifelse(exposure == "Age when periods started (menarche)", "Age at menarche", exposure)) %>%
-              select(exposure, outcome, method, nsnp, or, or_lci95, or_uci95, pval) %>% 
+              select(-starts_with("or"), -id.outcome, -dir) %>% 
+              select(id.exposure, exposure, outcome, method, nsnp, pval,se, everything()) %>% 
               arrange(outcome, exposure)
 
 aam_to_md_sens <-  read_tsv(paste0(results_path, current_trait_category, "/", current_trait_category, "_w_traits_biMR_results_sens.tsv")) %>% 
@@ -97,8 +100,15 @@ aam_to_md_sens <-  read_tsv(paste0(results_path, current_trait_category, "/", cu
 ### MVMR
 
 # aaM +cbmi -> MD ###### NB NEEDS TO REGENRATED + UPDATE PATH for ADJUSTED 'md' data
-mvmr_aaM_cbmi_to_md <- read_tsv(paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI_unadjMD.tsv"))
-mvmr_aaM_cbmi_to_md_sens <- read_tsv( paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_unadjMD.tsv"))
+mvmr_aaM_cbmi_to_md <- read_tsv(paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI_unadjMD.tsv")) %>% 
+                        select(-starts_with("or")) %>% 
+                        select(exposure, outcome,  nsnp, pval, se, everything()) %>% 
+                        mutate(exposure = ifelse(exposure =="age_at_menarche_ukb",  "Age at menarche", exposure)) %>% 
+                        mutate(pair = ifelse(pair =="age_at_menarche_ukb",  "Age at menarche", pair)) 
+
+mvmr_aaM_cbmi_to_md_sens <- read_tsv( paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_unadjMD.tsv")) %>% 
+                            rename("Age at menarche (Fst)" =  "age_at_menarche_ukb (Fst)")
+                            
 
 # cbmi+abmi -> md
 mvmr_BMIs_to_md <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_BMIs-",current_trait_category,"-to-BCAC.tsv")) %>%
@@ -107,8 +117,24 @@ mvmr_BMIs_to_md_sens <- read_tsv(paste0(results_path, current_trait_category, "/
 
 
 # cbmi + md -> bc
-mvmr_cBMIs_md_to_bc <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-",current_trait_category,"-to-BCAC.tsv")) 
-mvmr_cBMIs_md_to_bc_sens <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_mvmr_sens_earlyBMI-",current_trait_category,"-to-BCAC.tsv"))
+mvmr_cBMI_md_to_bc <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-",current_trait_category,"-to-BCAC.tsv")) %>% 
+  filter(!grepl("BRCA", outcome)) %>% 
+  mutate(outcome = case_when(outcome =="Breast cancer (new)" ~ "BCAC 2020",
+                             outcome =="Breast cancer" ~ "BCAC 2017",
+                             outcome =="ER+ Breast cancer" ~ "ER+ Breast cancer",
+                             outcome =="ER- Breast cancer" ~ "ER- Breast cancer",
+                             outcome =="Luminal A"    ~ "Luminal A",   
+                             outcome =="Luminal B, HER2+"   ~ "Luminal B1",  
+                             outcome =="Luminal B, HER2-" ~ "Luminal B2" ,
+                             outcome =="HER2 enriched"  ~ "HER2-enriched" ,
+                             outcome =="TN Basal"  ~ "TNBC" ,
+                             TRUE ~ outcome)) %>% 
+  select(exposure, outcome, nsnp, or, or_lci95, or_uci95, pval, mediator) %>% 
+  arrange(mediator, outcome, exposure) %>% 
+  mutate(pval_0.05 = ifelse(pval < 0.051, 1, 0))
+
+mvmr_cBMI_md_to_bc_sens <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_mvmr_sens_earlyBMI-",current_trait_category,"-to-BCAC.tsv")) %>% 
+                          select(-Qstat, -Qpval, everything(), Qstat, Qpval)
 
 
 #### write to xls
@@ -122,8 +148,8 @@ sheets <- list("1bmi_to_md" = bmi_to_md,
                "8mvmr_aaM_cbmi_to_md_sens" = mvmr_aaM_cbmi_to_md_sens,
                "9md_to_bc" = md_to_bc,
                "10md_to_bc_sens" = md_to_bc_sens,
-               "11mvmr_cBMIs_md_to_bc"= mvmr_cBMIs_md_to_bc,
-               "12mvmr_cBMIs_md_to_bc_sens" = mvmr_cBMIs_md_to_bc_sens
+               "11mvmr_cBMI_md_to_bc"= mvmr_cBMI_md_to_bc,
+               "12mvmr_cBMI_md_to_bc_sens" = mvmr_cBMI_md_to_bc_sens
                ) 
 write_xlsx(sheets, paste0(results_path, "all_results_",current_trait_category,".xlsx"))
 
