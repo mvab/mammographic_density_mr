@@ -15,6 +15,8 @@ library(tidyr)
 library(purrr)
 library(tibble)
 library(dplyr)
+library(writexl)
+
 ```
 
 ```{r}
@@ -33,12 +35,13 @@ source("../functions.R")
 
 # Collecting univarible MR results
 ```{r}
-## for md_unadj
+# unadjusted 
 
 # bmi -> md
 current_trait_category <- "md_unadj" 
-bmi_to_md <-      read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-md_unadj.tsv"))
-bmi_to_md_sens <- read_tsv(paste0(results_path, current_trait_category, "/merged_sens_mr_BMI-to-md_unadj.tsv"))
+bmi_to_md <-      read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-",current_trait_category,".tsv")) %>% 
+                  select(-starts_with("or"))
+bmi_to_md_sens <- read_tsv(paste0(results_path, current_trait_category, "/merged_sens_mr_BMI-to-",current_trait_category,".tsv"))
 
 
 # md -> bc
@@ -93,18 +96,37 @@ aam_to_md_sens <-  read_tsv(paste0(results_path, current_trait_category, "/", cu
 
 ### MVMR
 
-#aaM+md -> BC 
-mvmr_aaM_md_to_bc <- read_tsv(paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI_unadjMD.tsv"))
-mvmr_aaM_md_to_bc_sens <- read_tsv( paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_unadjMD.tsv"))
+# aaM +cbmi -> MD ###### NB NEEDS TO REGENRATED + UPDATE PATH for ADJUSTED 'md' data
+mvmr_aaM_cbmi_to_md <- read_tsv(paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI_unadjMD.tsv"))
+mvmr_aaM_cbmi_to_md_sens <- read_tsv( paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_unadjMD.tsv"))
 
 # cbmi+abmi -> md
-mvmr_BMIs_to_md <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_BMIs-md_unadj-to-BCAC.tsv"))
-mvmr_BMIs_to_md_sens <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_mvmr_sens_BMIs-md_unadj-to-BCAC.tsv"))
+mvmr_BMIs_to_md <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_BMIs-",current_trait_category,"-to-BCAC.tsv")) %>%
+                   select(-starts_with("or"))
+mvmr_BMIs_to_md_sens <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_mvmr_sens_BMIs-",current_trait_category,"-to-BCAC.tsv"))%>%            select(outcome_trait=trait, everything())
 
 
 # cbmi + md -> bc
-mvmr_cBMIs_md_to_bc <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-md_unadj-to-BCAC.tsv"))
-mvmr_cBMIs_md_to_bc_sens <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_mvmr_sens_earlyBMI-md_unadj-to-BCAC.tsv"))
+mvmr_cBMIs_md_to_bc <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-",current_trait_category,"-to-BCAC.tsv")) 
+mvmr_cBMIs_md_to_bc_sens <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_mvmr_sens_earlyBMI-",current_trait_category,"-to-BCAC.tsv"))
+
+
+#### write to xls
+sheets <- list("1bmi_to_md" = bmi_to_md, 
+               "2bmi_to_md_sens" = bmi_to_md_sens,
+               "3mvmr_BMIs_to_md"=mvmr_BMIs_to_md, 
+               "4mvmr_BMIs_to_md_sens"=mvmr_BMIs_to_md_sens, 
+               "5aam_to_md" = aam_to_md, # cmi total is in 1
+               "6aam_to_md_sens" = aam_to_md_sens,
+               "7mvmr_aaM_cbmi_to_md" = mvmr_aaM_cbmi_to_md,
+               "8mvmr_aaM_cbmi_to_md_sens" = mvmr_aaM_cbmi_to_md_sens,
+               "9md_to_bc" = md_to_bc,
+               "10md_to_bc_sens" = md_to_bc_sens,
+               "11mvmr_cBMIs_md_to_bc"= mvmr_cBMIs_md_to_bc,
+               "12mvmr_cBMIs_md_to_bc_sens" = mvmr_cBMIs_md_to_bc_sens
+               ) 
+write_xlsx(sheets, paste0(results_path, "all_results_",current_trait_category,".xlsx"))
 
 ```
+
 
