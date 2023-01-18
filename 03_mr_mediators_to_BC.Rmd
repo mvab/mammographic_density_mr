@@ -333,7 +333,7 @@ pd_merged<- read_tsv(paste0(results_path, current_trait_category, "/compare_PD_a
 ## MD from shared data
 
 ```{r message=F}
-## NOT USED##
+
 
 current_trait_category <- "md_unadj"
 
@@ -359,7 +359,10 @@ dat_all %>% kable_it()
 # rearrange to be in the required order
 dat_all<-arrange(dat_all, exposure) %>% mutate(exposure=as.factor(exposure))
 dat_all$exposure <- forcats::fct_inorder(dat_all$exposure) %>% forcats::fct_rev() 
+```
 
+```{r}
+## NOT USED##
 pal<-(c(unname(yarrr::piratepal("pony"))))[c(1,8,5)]
 p<-ggplot(dat_all, aes(y=exposure, x=or, label=outcome, colour=exposure, shape=method)) +
   geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.3) +
@@ -503,7 +506,7 @@ ggforestplot::forestplot(
 
 ```{r}
 ### same as main plot but also with  direct estimates: 
-dat_direct <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-md_unadj-to-BCAC.tsv")) %>%  # made in 04
+dat_direct <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-", current_trait_category,"-to-BCAC.tsv")) %>%  # made in 04
               filter(exposure != "Childhood body size") %>% 
               filter(outcome!= "BRCA1_TN") %>% 
               select(exposure, outcome, or, or_lci95, or_uci95) %>% 
