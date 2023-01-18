@@ -311,23 +311,10 @@ for (j in 1:length(bcac_lookup$trait)){
       
         
         # find phenotypic correlation value in table and estimate gencov
-        if (mediator_name %in% phenocor_matrix$mediator){
-          print(paste0("Using phenocor for calculating Fst"))
-          phenocor_values <- filter(phenocor_matrix, mediator == mediator_name)
-          pheno_mat <- matrix(c(1, phenocor_values$early_bmi,
-                            phenocor_values$early_bmi, 1), nrow=2, ncol=2)
-          colnames(pheno_mat) = rownames(pheno_mat) = c("Childhood body size", mediator_name)
-          print(pheno_mat)
-          
-          #extract SE matrix ### NB use MVMR_OUT now
-          se_matrix <- mvmr_out %>% as_tibble() %>% select(contains("sebetaX")) %>% as.data.frame()
-      
-          #estimate gencov
-          gen_cov <- phenocov_mvmr(Pcov = as.matrix(pheno_mat), seBXGs = se_matrix)
-        } else{
-          print("No phenotypic correlation available, going to use gencov=0 ")
-          gen_cov <- 0
-        }
+       
+        print("No phenotypic correlation available, going to use gencov=0 ")
+        gen_cov <- 0
+        
         
         #Test for weak instruments
         sres <- strength_mvmr(r_input=mvmr_out, gencov=gen_cov)
@@ -609,7 +596,7 @@ for (mvmr_type in mvmr_types) {
   
   file_prefix <- paste0(mvmr_type, current_trait_category, "-to-BCAC")
   write_tsv(df, paste0(results_path, current_trait_category, "/mvmr/merged/merged_", file_prefix, ".tsv"))
-  print(paste0(" -> Merged and saved."))
+  print(paste0(" -> Merged and saved: ", results_path, current_trait_category, "/mvmr/merged/merged_", file_prefix, ".tsv"))
 
 }
 ```
