@@ -88,34 +88,52 @@ exp_code <- "PD_unadj"
 ```{r}
 
 # MR
+if (grepl("unadj", exp_code)){dir <- "md_unadj"}
+
 out <- extract_outcome_data(snps = da$SNP,
                             outcome = "ieu-a-1126")
 harmonised<- harmonise_data(exposure_dat = da, 
-                                outcome_dat = out)
+                                outcome_dat = out) %>% 
+             TwoSampleMR::split_outcome() %>% 
+             separate(outcome, sep = "\\(", into = c("outcome", "tmp"), remove = T) %>% 
+             mutate(outcome = paste(outcome, "/", id.outcome)) 
+  
 res <- mr(harmonised) %>% 
-  split_outcome() %>% 
   generate_odds_ratios()
 
 # sensitivity
 het<- mr_heterogeneity(harmonised)
 egger_int <- mr_pleiotropy_test(harmonised)
 
-p1 <- mr_scatter_plot(res, harmonised)
+p1 <- mr_scatter_plot_manual(res, harmonised)
 
 res_single <- mr_singlesnp(harmonised, 
-                               all_method=c("mr_ivw_fe","mr_ivw_mre","mr_egger_regression",
-                                            "mr_weighted_median","mr_weighted_mode"))%>% 
-                  mutate(SNP = gsub("Inverse variance weighted", "IVW", SNP))
-p2 <- mr_forest_plot(res_single)
+                               all_method=c("mr_ivw_mre","mr_egger_regression", "mr_weighted_median"))%>% 
+                  mutate(SNP = gsub("Inverse variance weighted (multiplicative random effects)", "IVW (MRE)", SNP, fixed = T)) 
+
+p2 <- mr_forest_plot(res_single) 
 
 res_loo <- mr_leaveoneout(harmonised)
-p3 <- mr_leaveoneout_plot(res_loo)
+p3 <- mr_leaveoneout_plot_manual(res_loo)
 
 x<-cowplot::plot_grid( p2[[1]], p3[[1]], p1[[1]],nrow=2) 
-x
+
 ```
 
 # MR-PRESSO 
+```{r}
+# selection of NbDistribution
+## Data Frame of nsnps and number of iterations
+## idea from: https://github.com/sjfandrews/MR_ADPhenome/blob/b64d8821dbf1546090f47e0642cc8092592cddc8/workflow/scripts/mr_MRPRESSO.R
+#df.NbD <- data.frame(n = c(10, 50, 100, 500, 1000, 1500, 2000),
+#                     NbDistribution = c(10000, 10000, 10000, 25000, 50000, 75000, 100000))
+#nsnps <- nrow(harmonised)
+#SignifThreshold <- 0.05
+#NbDistribution <- df.NbD[which.min(abs(df.NbD$n - nsnps)), 2]
+#
+# i have < 20 SNPs, so will need ~ 10000 NbDistribution - but result sis the same with 1000, so will keep that
+```
+
 
 ```{r}
 # run MR-presso
@@ -123,17 +141,32 @@ library(MRPRESSO)
 mr_presso <- mr_presso(data = harmonised,
                        BetaOutcome = "beta.outcome", BetaExposure = "beta.exposure", 
                        SdOutcome = "se.outcome", SdExposure = "se.exposure",
-                       OUTLIERtest = TRUE, DISTORTIONtest = TRUE,  NbDistribution = 1000,  SignifThreshold = 0.05)
+                       OUTLIERtest = TRUE, DISTORTIONtest = TRUE,  
+                       NbDistribution = 1000,  SignifThreshold = 0.05)
 
-mr_presso_df <- as.data.frame(mr_presso$`Main MR results`)
+mr_presso_df <- as.data.frame(mr_presso$`Main MR results`) %>% 
+                rename(b=`Causal Estimate`, se = Sd) %>% 
+                mutate(Exposure = exp_code,
+                       Outcome = unique(harmonised$outcome)) %>%
+                generate_odds_ratios() %>% 
+                select(Exposure, Outcome, everything())
 
-mr_presso_df <- mr_presso_df %>% rename(b=`Causal Estimate`, se = Sd) %>% generate_odds_ratios()
+write_tsv(mr_presso_df,
+          paste0(results_path, dir, "/presso_radial/", exp_code,"_presso_results.tsv"))
 
 outlier_indicies <- mr_presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`
 
-outliers<- harmonised %>% select(SNP) %>%  mutate(index = row_number()) %>% 
+outliers<- harmonised %>% 
+              select(SNP) %>% 
+              mutate(index = row_number()) %>% 
               filter(index %in% outlier_indicies) %>% pull(SNP)
 
+
+forest_presso <- mr_forest_plot_outliers(res_single,  outliers_list=outliers, outliers_colour = "steelblue", method = "MR-PRESSO") 
+
+ggsave(plot=forest_presso, 
+      height=5, width=6,
+       filename=paste0(results_path, dir, "/presso_radial/", exp_code, "_snps_outliers_forest_presso.png"))
 ```
 
 
@@ -184,6 +217,15 @@ ivwrad$sortoutliers$Qdif <- ivwrad$sortoutliers$Qsum - ivwrad$qstatistic
 # run MR without top outliers
 #harmonised2 <- harmonised[!harmonised$SNP %in% ivwrad$outliers$SNP,]
 #mr_results2 <- mr(harmonised2) %>%  generate_odds_ratios()
+#
+
+forest_radial <- mr_forest_plot_outliers(res_single,  outliers_list=ivwrad$sortoutliers$SNP, outliers_colour = "orange", method = "Radial-MR") 
+
+ggsave(plot=forest_radial, 
+      height=5, width=6,
+       filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_outliers_forest_radial.png"))
+
+
 ```
 
 
@@ -221,12 +263,15 @@ clusters
 
 clust_plot_best = cluster_results$plots$two_stage +
   ggplot2::xlab(paste0("Genetic association with ", exposure_name)) +
-  ggplot2::ylab("Genetic association with Breast cancer") +
-  ggplot2::ggtitle("")
+  ggplot2::ylab("Genetic association with Breast cancer (BCAC 2017)") +
+  ggplot2::labs(title = "")+
+  ggplot2::labs(subtitle = "MR-Clust scatter plot")
 clust_plot_best
 
 ggsave(plot=clust_plot_best, 
        filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.png"))
+
+
 
 
 # extract SNP (and optionally drop null/junk)
@@ -257,7 +302,22 @@ clust_snp_df_top_cluster <-
 
 write_tsv(clust_snp_df_top_cluster, paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
 
-  
+
+# cluster paletter from MR-Clust function
+cbpalette <- c(cluster_Null = "#CC79A7", cluster_Junk = "#000000", `cluster_1` = "#999999", 
+    `cluster_2` = "#0072B2", `cluster_3` = "#D55E00", `cluster_4` = "#F0E442", 
+    `cluster_5` = "#009E73",  `cluster_6` = "#56B4E9", `cluster_7` = "#E69F00")
+
+
+forest_by_clusters <- mr_forest_plot_clusters(res_single,  outliers_df=clust_snp_df_top_cluster, outliers_colour_list=cbpalette)
+
+ggsave(plot=forest_by_clusters, 
+      height=5, width=6,
+       filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters_forest.png"))
+
+
+
+
 # do mr by cluster
 mr_cluster_list <- list()
 
@@ -276,6 +336,31 @@ for (cluster_name in unique(clust_snp_df_top_cluster$cluster)){
 
 out <- bind_rows(mr_cluster_list)
 ```
+
+
+# ~ collect plots
+```{r}
+library(cowplot)
+
+top_row <- plot_grid( p1[[1]], p3[[1]],  rel_widths = c(1.6, 0.8),
+                      labels= c("Scatter plot",
+                                "Leave-one-out plot"),
+                      label_size = 9)
+
+
+bottom_row <-
+  plot_grid(forest_presso, forest_radial,
+           clust_plot_best, forest_by_clusters,
+           labels = c("",
+                      "",
+                      "",
+                      ""),
+           label_size = 9,
+          axis = "t", nrow=2) 
+all <-
+  plot_grid(top_row, bottom_row, ncol = 1, rel_heights = c(0.33, 0.66))
+```
+
 
 
 
@@ -306,6 +391,18 @@ save(snp_phewas, file=paste0(results_path, "phewas/",exp_code,"_cluster_phewas.R
 # pheWAS tidy
 
 load(file=paste0(results_path, "phewas/",exp_code,"_cluster_phewas.RData"))
+
+
+```
+
+
+
+# Merging results 
+
+```{r}
+
+# merge MR-presso result for subtypes
+
 
 
 ```
