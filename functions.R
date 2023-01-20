@@ -131,12 +131,12 @@ mr_forest_plot_outliers <- function (d,  outliers_list, outliers_colour, method)
      requireNamespace("ggplot2", quietly = TRUE)
      requireNamespace("plyr", quietly = TRUE)
 
-     if (sum(!grepl("All", d$SNP)) < 2) {
+     if (sum(!grepl("All|Outlier", d$SNP)) < 2) {
        return(blank_plot("Insufficient number of SNPs"))}
 
      levels(d$SNP)[levels(d$SNP) == "All - Inverse variance weighted"] <- "All - IVW"
      levels(d$SNP)[levels(d$SNP) == "All - MR Egger"] <- "All - Egger"
-     am <- grep("All", d$SNP, value = TRUE)
+     am <- grep("All|Outlier", d$SNP, value = TRUE)
      d$up <- d$b + 1.96 * d$se
      d$lo <- d$b - 1.96 * d$se
      d$tot <- 0.01
@@ -184,12 +184,12 @@ mr_forest_plot_clusters <- function (d,  outliers_df, outliers_colour_list) {
   requireNamespace("ggplot2", quietly = TRUE)
   requireNamespace("plyr", quietly = TRUE)
   
-  if (sum(!grepl("All", d$SNP)) < 2) {
-    return(blank_plot("Insufficient number of SNPs"))}
+  #if (sum(!grepl("All", d$SNP)) < 2) {
+  # return(blank_plot("Insufficient number of SNPs"))}
   
   levels(d$SNP)[levels(d$SNP) == "All - Inverse variance weighted"] <- "All - IVW"
   levels(d$SNP)[levels(d$SNP) == "All - MR Egger"] <- "All - Egger"
-  am <- grep("All", d$SNP, value = TRUE)
+  am <- grep("All|cluster", d$SNP, value = TRUE)
   d$up <- d$b + 1.96 * d$se
   d$lo <- d$b - 1.96 * d$se
   d$tot <- 0.01

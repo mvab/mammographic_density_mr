@@ -161,8 +161,20 @@ outliers<- harmonised %>%
               mutate(index = row_number()) %>% 
               filter(index %in% outlier_indicies) %>% pull(SNP)
 
+# mr without outliers
 
-forest_presso <- mr_forest_plot_outliers(res_single,  outliers_list=outliers, outliers_colour = "steelblue", method = "MR-PRESSO") 
+res_outliers_presso <- harmonised %>% 
+        filter(!SNP %in% outliers) %>% 
+        mr() %>% 
+        filter(method == "Inverse variance weighted") %>% 
+        rename(p=pval, SNP=method) %>% 
+        mutate(SNP = "Outlier corrected - IVW")
+
+res_single_presso <- bind_rows(res_single, res_outliers_presso)
+outliers_list = append(outliers, 'Outlier corrected - IVW')
+        
+
+forest_presso <- mr_forest_plot_outliers(res_single_presso,  outliers_list= outliers_list, outliers_colour = "steelblue", method = "MR-PRESSO") 
 
 ggsave(plot=forest_presso, 
       height=5, width=6,
@@ -219,7 +231,19 @@ ivwrad$sortoutliers$Qdif <- ivwrad$sortoutliers$Qsum - ivwrad$qstatistic
 #mr_results2 <- mr(harmonised2) %>%  generate_odds_ratios()
 #
 
-forest_radial <- mr_forest_plot_outliers(res_single,  outliers_list=ivwrad$sortoutliers$SNP, outliers_colour = "orange", method = "Radial-MR") 
+# mr without outliers
+
+res_outliers_radial <- harmonised %>% 
+        filter(!SNP %in% ivwrad$sortoutliers$SNP) %>% 
+        mr() %>% 
+        filter(method == "Inverse variance weighted") %>% 
+        rename(p=pval, SNP=method) %>% 
+        mutate(SNP = "Outlier corrected - IVW")
+
+res_outliers_radial <- bind_rows(res_single, res_outliers_radial)
+outliers_list = append(ivwrad$sortoutliers$SNP, 'Outlier corrected - IVW')
+
+forest_radial <- mr_forest_plot_outliers(res_outliers_radial,  outliers_list=outliers_list, outliers_colour = "orange", method = "Radial-MR") 
 
 ggsave(plot=forest_radial, 
       height=5, width=6,
@@ -334,7 +358,26 @@ for (cluster_name in unique(clust_snp_df_top_cluster$cluster)){
   
 }
 
-out <- bind_rows(mr_cluster_list)
+out <- bind_rows(mr_cluster_list) %>% filter(cluster_no != 'cluster_Junk')
+
+
+# add cluster mr to plot
+
+# add cluster MR to res_single
+res_single_w_clust <- bind_rows(res_single, 
+                                out %>% rename(SNP = cluster_no, p = pval) %>% 
+                                        select(-c(method, nsnp, or, or_lci95, or_uci95))) %>% 
+                      filter(!grepl("All", SNP))
+extra_cluster_df <- data.frame(rsID = c("cluster_1", "cluster_2", "cluster_3", "cluster_4"),
+                              cluster = c("cluster_1", "cluster_2", "cluster_3", "cluster_4"))
+clust_snp_df_top_cluster <- bind_rows(clust_snp_df_top_cluster,extra_cluster_df)
+
+forest_by_clusters <- mr_forest_plot_clusters(res_single_w_clust,  outliers_df=clust_snp_df_top_cluster, outliers_colour_list=cbpalette)
+
+ggsave(plot=forest_by_clusters, 
+      height=5, width=6,
+       filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters_forest.png"))
+
 ```
 
 
@@ -396,14 +439,4 @@ load(file=paste0(results_path, "phewas/",exp_code,"_cluster_phewas.RData"))
 ```
 
 
-
-# Merging results 
-
-```{r}
-
-# merge MR-presso result for subtypes
-
-
-
-```
 
