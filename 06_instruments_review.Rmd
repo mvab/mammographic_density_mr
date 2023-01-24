@@ -459,7 +459,7 @@ snp_phewas_df2 <- snp_phewas_df2  %>%   mutate(rsid = factor(rsid, levels=snp_or
 snp_phewas_df3 <- snp_phewas_df2 %>% 
 mutate(exposure_cat = case_when(
       grepl("Drug|Medication|prescription medications", trait, ignore.case = T) ~ "Drugs",
-      grepl("breast", trait, ignore.case = T) ~ "Breast related",
+      grepl("breast cancer|Malignant neoplasm of breast", trait, ignore.case = T) ~ "Breast related",
       grepl("^ENS", trait, ignore.case = T) ~ "eQTL",
       grepl("blood pressure|heart|Pulse|Cardiac|thromboembolism", trait, ignore.case = T) ~ "CVD_related",
       grepl("operation|operative|Methods of admission|Number of treatments|Spells in hospital|hospital episode", trait, ignore.case = T) ~ "Medical Procedures",
@@ -484,11 +484,11 @@ mutate(exposure_cat = case_when(
     #mutate(exposure_cat = ifelse(grepl("LDL|HDL|VLDL|cholest|trigl|cholesterol|glyceride|total lipids|Serum total", exposure.trait, ignore.case = T) & exposure_cat %in% c('Metabolites', 'Other biomarkers'), "Lipids", exposure_cat)) %>%  # recapture those in met-a
     mutate(exposure_cat = ifelse(grepl("Average number|Ratio of", trait, ignore.case = T) , "other", exposure_cat))
 
-snp_phewas_df3 %>% count(exposure_cat) %>% View()
+#snp_phewas_df3 %>% count(exposure_cat) %>% View()
 
-snp_phewas_df3<- snp_phewas_df3 %>% mutate(label = case_when(exposure_cat == "Breast related" ~ "BC",
+snp_phewas_df3<- snp_phewas_df3 %>% mutate(label = case_when(exposure_cat == "Breast related" ~ "Breast cancer",
                                                              #exposure_cat == "Antrophometric" ~ "antro",
-                                                             TRUE ~ "else"))
+                                                             TRUE ~ "Other phenotypes"))
 
 
 
@@ -503,15 +503,16 @@ cbpalette <- c(cluster_Null = "#CC79A7", cluster_Junk = "#000000", `cluster_1` =
 ggplot(data = snp_phewas_df3, mapping = aes(x = rsid, y = log10P_trunc, colour=cluster, shape= label, size=label)) + 
   # modify jitter geom to look like a bubble plot
   geom_jitter(alpha=0.8,  position = position_jitter(width = 0.4))+
-  theme_minimal_vgrid(9, rel_small = 1) +
+  theme_minimal_vgrid(8, rel_small = 1) +
   scale_color_manual(values=cbpalette)+
   scale_shape_manual(values=c(18, 3))+
   scale_size_manual(values=c(4, 2))+
   coord_flip()+
   theme(axis.text.x = element_text(angle = 0, hjust = 1),
-        legend.position = "none")+
-  labs(title="",
-       y = "-log10 p-value", x = "rsid / cluster", colour= "cluster")
+        legend.position = "right")+
+  labs(title="", colour= "Cluster", shape  = "Association with",
+       y = "-log10 p-value of association with other traits", x = "Non-dense SNPs, by cluster", colour= "cluster")+
+  guides(size="none")
 
 
 ```
