@@ -96,7 +96,7 @@ harmonised<- harmonise_data(exposure_dat = da,
                                 outcome_dat = out) %>% 
              TwoSampleMR::split_outcome() %>% 
              separate(outcome, sep = "\\(", into = c("outcome", "tmp"), remove = T) %>% 
-             mutate(outcome = paste(outcome, "/", id.outcome)) 
+             mutate(outcome = paste(outcome, "(BCAC 2017)") )
   
 res <- mr(harmonised) %>% 
   generate_odds_ratios()
@@ -219,6 +219,10 @@ dim(eggrad$outliers)[1] #12 outliers at 0.05  (9 bonf)
 
 # make plot
 radial_plot <- plot_radial(c(ivwrad,eggrad), radial_scale = T, show_outliers = F,scale_match= T)
+ggsave(plot=radial_plot, 
+      height=5, width=6,
+       filename=paste0(results_path, dir, "/presso_radial/", exp_code, "_snps_outliers_radialplot.png"))
+
 
 # select outliers
 ivwrad$qstatistic 
@@ -226,13 +230,7 @@ ivwrad$sortoutliers <- ivwrad$outliers[order(ivwrad$outliers$p.value),]
 ivwrad$sortoutliers$Qsum <- cumsum(ivwrad$sortoutliers$Q_statistic)
 ivwrad$sortoutliers$Qdif <- ivwrad$sortoutliers$Qsum - ivwrad$qstatistic
 
-# run MR without top outliers
-#harmonised2 <- harmonised[!harmonised$SNP %in% ivwrad$outliers$SNP,]
-#mr_results2 <- mr(harmonised2) %>%  generate_odds_ratios()
-#
-
 # mr without outliers
-
 res_outliers_radial <- harmonised %>% 
         filter(!SNP %in% ivwrad$sortoutliers$SNP) %>% 
         mr() %>% 
@@ -247,7 +245,7 @@ forest_radial <- mr_forest_plot_outliers(res_outliers_radial,  outliers_list=out
 
 ggsave(plot=forest_radial, 
       height=5, width=6,
-       filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_outliers_forest_radial.png"))
+      filename=paste0(results_path, dir, "/presso_radial/", exp_code,"_snps_outliers_forest_radial.png"))
 
 
 ```
@@ -289,7 +287,11 @@ clust_plot_best = cluster_results$plots$two_stage +
   ggplot2::xlab(paste0("Genetic association with ", exposure_name)) +
   ggplot2::ylab("Genetic association with Breast cancer (BCAC 2017)") +
   ggplot2::labs(title = "")+
-  ggplot2::labs(subtitle = "MR-Clust scatter plot")
+  ggplot2::labs(subtitle = "MR-Clust scatter plot")+
+  ggplot2::theme(axis.title.y = ggplot2::element_text(size = 8), 
+                 axis.title.x = ggplot2::element_text(size = 8) )
+
+
 clust_plot_best
 
 ggsave(plot=clust_plot_best, 
@@ -334,11 +336,6 @@ cbpalette <- c(cluster_Null = "#CC79A7", cluster_Junk = "#000000", `cluster_1` =
 
 
 forest_by_clusters <- mr_forest_plot_clusters(res_single,  outliers_df=clust_snp_df_top_cluster, outliers_colour_list=cbpalette)
-
-ggsave(plot=forest_by_clusters, 
-      height=5, width=6,
-       filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters_forest.png"))
-
 
 
 
@@ -394,12 +391,19 @@ top_row <- plot_grid( p1[[1]], p3[[1]],  rel_widths = c(1.6, 0.8),
 bottom_row <-
   plot_grid(forest_presso, forest_radial,
            clust_plot_best, forest_by_clusters,
-           labels = c("",
-                      "",
-                      "",
-                      ""),
-           label_size = 9,
+           labels = c("a",
+                      "b",
+                      "c",
+                      "d"),
+           label_size = 12,
           axis = "t", nrow=2) 
+
+ggsave(plot=bottom_row, 
+      height=10, width=10, scale=1, dpi=300,
+       filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_combined_plots.png"))
+
+
+
 all <-
   plot_grid(top_row, bottom_row, ncol = 1, rel_heights = c(0.33, 0.66))
 ```
