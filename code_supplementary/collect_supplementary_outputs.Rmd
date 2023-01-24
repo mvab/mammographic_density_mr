@@ -133,8 +133,22 @@ mvmr_cBMI_md_to_bc <- read_tsv(paste0(results_path, current_trait_category, "/mv
   arrange(mediator, outcome, exposure) %>% 
   mutate(pval_0.05 = ifelse(pval < 0.051, 1, 0))
 
+outs <- rep(unique(mvmr_cBMI_md_to_bc$outcome),3)
+
 mvmr_cBMI_md_to_bc_sens <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_mvmr_sens_earlyBMI-",current_trait_category,"-to-BCAC.tsv")) %>% 
                           select(-Qstat, -Qpval, everything(), Qstat, Qpval)
+mvmr_cBMI_md_to_bc_sens$outcome <- outs
+
+
+
+# MR-presso results
+
+presso_da <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "DA_unadj" ,"_presso_results.tsv"))
+presso_nda <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "NDA_unadj" ,"_presso_results.tsv"))
+presso_pd <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "PD_unadj" ,"_presso_results.tsv"))
+mrpresso = bind_rows(presso_da, presso_nda, presso_pd)
+
+
 
 
 #### write to xls
@@ -149,7 +163,8 @@ sheets <- list("1bmi_to_md" = bmi_to_md,
                "9md_to_bc" = md_to_bc,
                "10md_to_bc_sens" = md_to_bc_sens,
                "11mvmr_cBMI_md_to_bc"= mvmr_cBMI_md_to_bc,
-               "12mvmr_cBMI_md_to_bc_sens" = mvmr_cBMI_md_to_bc_sens
+               "12mvmr_cBMI_md_to_bc_sens" = mvmr_cBMI_md_to_bc_sens,
+               "13mrpresso" = mrpresso,
                ) 
 write_xlsx(sheets, paste0(results_path, "all_results_",current_trait_category,".xlsx"))
 
