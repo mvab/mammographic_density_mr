@@ -304,7 +304,7 @@ r_func <- function(x, logistic.exposure,logistic.outcome ){
 
 
 # PheWAS
-get_pheno_assoc <- function(snp, ao_eu){
+get_pheno_assoc <- function(snp, ao_eu, p_value = 10e-8){
   # ao_eu is made like this:
   #ao_eu <-TwoSampleMR::available_outcomes() %>% filter(population == "European")
   
@@ -314,21 +314,26 @@ get_pheno_assoc <- function(snp, ao_eu){
   
   if (nrow(phenosc) > 0){
     phenosc<- phenosc %>%  as.data.frame() %>% 
-      filter(p <= 5e-8) %>% 
+      mutate(p=as.numeric(p)) %>% mutate(beta=as.numeric(beta)) %>% mutate(se=as.numeric(se)) %>% 
+      filter(p <= p_value) %>% 
       filter(ancestry == "European") %>% 
-      arrange(p) %>% pull(trait) %>% unique()
+      arrange(p) %>% select(rsid,trait, study, dataset, beta, se, p) %>% distinct() %>% 
+      mutate(source="Phenoscanner")
   } else {  phenosc<-c() } # in case no res
   
   # query opengwas
-  phwnogw<- ieugwasr::phewas(variants=snp, pval=5e-8)
+  phwnogw<- ieugwasr::phewas(variants=snp, pval=p_value)
   if (nrow(phwnogw) > 0){
     phwnogw <- phwnogw %>%  as.data.frame()  %>% 
       filter(id %in% ao_eu$id) %>% 
-      arrange(p) %>% pull(trait) %>% unique()
+      arrange(p) %>% select(rsid,trait,  beta, se, p, id) %>% distinct() %>% 
+      left_join(ao_eu %>% select(id, study=consortium, author)) %>% 
+      mutate(source="OpenGWAS")
   } else {  phwnogw<-c() }  # in case no res
   
   # merge sources
-  out <- sort(unique(c(phenosc, phwnogw)))
+  out <- plyr::rbind.fill(phenosc, phwnogw)
+  return(out)
   
 }
 
