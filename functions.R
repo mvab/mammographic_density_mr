@@ -435,4 +435,21 @@ enrich_dbs<-function(gene_list, dbs, adjpval_filter = 0.05){
 }
 
 
+# query latest Reactome db
+queryReactome <- function(gene){
+  
+  require(ReactomeContentService4R)
+  cat("\n")
+  print(paste0("Querying ", gene))
+  
+  pathways <- map2Events(gene, resource = "HGNC", species = "human", mapTo = "pathways")
+  if (!is.null(pathways)){
+    out<- pathways %>% as_tibble %>%
+      dplyr::select(displayName, stId, isInDisease,releaseDate) %>% 
+      mutate(Term = paste(displayName, stId)) %>% 
+      mutate(Genes = gene) %>% dplyr::select(Genes, Term, everything(), -displayName, -stId)
+  }else{
+    out<- tibble()
+  }
+}
 
