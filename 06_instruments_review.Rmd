@@ -21,6 +21,9 @@ library(ieugwasr)
 
 library(cowplot)
 library(ggplot2)
+set.seed(999) #DA
+set.seed(505) # PD
+set.seed(211)# NDA
 ```
 
 ```{r message=F}
@@ -336,6 +339,10 @@ cbpalette <- c(cluster_Null = "#CC79A7", cluster_Junk = "#000000", `cluster_1` =
 
 
 forest_by_clusters <- mr_forest_plot_clusters(res_single,  outliers_df=clust_snp_df_top_cluster, outliers_colour_list=cbpalette)
+
+forest_data = list(forest_by_clusters=forest_by_clusters,
+                   res_single=res_single)
+save(forest_data , file = paste0(results_path,"MRClust_results/",exp_code ,"_forest_plot.Rdata"))
 
 
 
