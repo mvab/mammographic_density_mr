@@ -20,6 +20,8 @@ library(httr)
 library(jsonlite)
 library(GenomicRanges)
 library(biomaRt)
+library(ReactomeContentService4R)
+
 
 library(eulerr)
 ```
@@ -95,9 +97,7 @@ print(paste("mapped", length(unique(eqtl1_sub$rsid)), "SNPs out of", length(uniq
 eqtl1_sub %>% count(rsid, sort=T) %>% View()
 eqtl1 %>% count(qtl_group, sort=T) %>% View()
 
-tissues_keep <-c("Cells_Cultured_fibroblasts" ,
-                 "Adipose_Subcutaneous" ,"Adipose_Visceral_Omentum" ,
-                 "Whole_Blood",
+tissues_keep <-c( "Adipose_Subcutaneous" ,"Adipose_Visceral_Omentum" ,
                  "Breast_Mammary_Tissue" ) # GTEx V8 only
 
 eqtl1 %>% dplyr::select(qtl_group, study_id) %>% filter(qtl_group %in% tissues_keep) %>% distinct() %>%  View()
@@ -129,7 +129,7 @@ write_tsv(cluster_df_genes3,
           paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation_w_tissues.tsv"))
 
 cluster_df_genes3_sub<- cluster_df_genes3 %>% 
-                        dplyr::select("cluster" , "geneFUMA","gprofiler_gene" ,"eQTL_gene" ) %>% distinct()
+                        dplyr::select("cluster" ,"rsID", "geneFUMA","gprofiler_gene" ,"eQTL_gene" ) %>% distinct()
 # save tidy version
 write_tsv(cluster_df_genes3_sub, 
           paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation.tsv"))
@@ -143,8 +143,29 @@ write_tsv(cluster_df_genes3_sub,
 ```{r}
 # load manually updated mapping file
 #cluster_df_genes2<- read_csv("../02_Results/tmp/NDA_all_snps_clusters_gene_annotation_plus_eQTL_upd.csv")
-cluster_df_genes2<- read_csv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation_manualupdate.csv"))
+cluster_df_genes2<- read_csv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation_manualupdate.csv")) # old
 cluster_df_genes2_sub <- cluster_df_genes2 %>% dplyr::select(cluster, gene) %>% drop_na() %>% distinct()
+
+### OR just use all: 
+
+cluster_df_genes2 <-  read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation.tsv")) 
+cluster_df_genes2_sub <- cluster_df_genes2 %>%  pivot_longer(cols = (3:5), names_to = "source", values_to = 'gene') %>% drop_na() %>% 
+                        # DA & PD
+                        #mutate(cluster_dir = case_when(cluster %in% c("cluster_1", "cluster_Null") ~ "negative",
+                        #                               rsID == "rs73169097" ~ "negative",
+                        #                               TRUE ~ "positive")) %>% 
+                        # DNDA
+                        mutate(cluster_dir = case_when(rsID == "rs75772194" ~ "positive",
+                                                       TRUE ~ "negative")) %>% 
+  
+                        # group by source
+                        group_by_at(vars(-source)) %>%
+                        summarize(source = toString(source)) %>%
+                        ungroup() 
+
+                        # gene renaming, when I know dbs don't match
+                        #mutate(gene = case_when(gene == "DIRC3" ~ 'FLJ14199',TRUE ~ gene))
+
 ```
 
 ```{r}
@@ -170,7 +191,7 @@ for (db_name in names(enriched)){
     enriched[[db_name]] <- NULL
   }
 }
-enriched_df<-bind_rows(enriched) %>% dplyr::select( Term, Genes, db) 
+enriched_df<-bind_rows(enriched) %>% dplyr::select( Term, Genes, db, Overlap) 
 
 enriched_df_unw<- enriched_df %>% tidyr::separate_rows(Genes, sep = ";", convert = TRUE)
 
@@ -179,27 +200,59 @@ genes_not_mapped # check if any genes can be further mapped -- update manual ann
 
 ```
 
+```{r}
+# query latest reactome db (because enrichr has only upto 2016)
+reactome_res<- lapply(gene_list, queryReactome)
+reactome_res_df<- bind_rows(reactome_res) %>% mutate(db = "Reactome 2022")
+
+# join pathway results
+enriched_df_unw <- bind_rows(enriched_df_unw , reactome_res_df)
+
+```
+
+
+```{r}
+# add genes to forest plot for visualisation
+
+
+#forest_data
+load(paste0(results_path,"MRClust_results/",exp_code ,"_forest_plot.Rdata"))
+forest_by_clusters<-forest_data$forest_by_clusters
+res_single<-forest_data$res_single
+
+res_single2<- res_single %>% 
+               left_join(cluster_df_genes2_sub %>%
+                    dplyr::select(rsID,gene), by=c("SNP"='rsID') ) %>% 
+             # group by source
+                group_by_at(vars(-gene)) %>%
+                summarize(gene = toString(gene)) %>%
+                ungroup() 
+  
+
+forest_by_clusters +
+  geom_text(data=res_single2, aes(y=SNP, x=b, label=gene),size =2.5 , hjust=-0.2, vjust=-0.2)
+
+
+res_single3<- res_single %>% 
+               left_join(cluster_df_genes2_sub %>%
+                      dplyr::select(rsID,gene), by=c("SNP"='rsID') ) %>% 
+                 filter(!gene  %in% genes_not_mapped) %>% 
+             # group by source
+                group_by_at(vars(-gene)) %>%
+                summarize(gene = toString(gene)) %>%
+                ungroup() 
+
+forest_by_clusters +
+  geom_text(data=res_single3, aes(y=SNP, x=b, label=gene),size =2.5 , hjust=-0.2, vjust=-0.2)
+
+
+```
 
 
 ```{r}
 # merge pathways with clusters
 enriched_df_unw <- left_join(enriched_df_unw, cluster_df_genes2_sub, by  = c("Genes" = "gene"))
 
-# positive/negative cluster split is different in echa case: double check these when running
-if (startsWith(exp_code, "NDA")){
-    enriched_df_unw <-enriched_df_unw %>% 
-                        mutate(clust_type = case_when(grepl("3|2|4|Null", cluster) ~ "negative", # null is in the middle!
-                                                      grepl("1", cluster) ~ "positive",
-                                                      TRUE ~ "null" ) )
-} else if (startsWith(exp_code, "DA")){
-  enriched_df_unw <-enriched_df_unw %>% 
-                        mutate(clust_type = case_when(grepl("3|5|4", cluster) ~ "negative",
-                                                      grepl("1|6|2", cluster) ~ "positive")) 
-} else if (startsWith(exp_code, "PD")){
-  enriched_df_unw <-enriched_df_unw %>% 
-                        mutate(clust_type = case_when(grepl("1|4", cluster) ~ "negative", 
-                                                      grepl("2|3|5|6", cluster) ~ "positive")) 
-}
 ```
 
 
@@ -210,9 +263,11 @@ enriched_df_unw_clust <-enriched_df_unw %>%  dplyr::select(-Genes, -cluster) %>%
 
 library(eulerr)
 # negative and junk
-sX <- list(positive = enriched_df_unw_clust %>% filter(clust_type == "positive") %>% pull(Term) %>% sort(),
-           #null = enriched_df_unw_clust %>% filter(clust_type == "null") %>% pull(Term) %>% sort(), # only add if needed
-           negative = enriched_df_unw_clust %>% filter(clust_type == "negative") %>% pull(Term) %>% sort())
+sX <- list(positive = enriched_df_unw %>% filter(cluster_dir == "positive") %>%
+             pull(Term) %>% unique()%>% sort(),
+           #null = enriched_df_unw_clust %>% filter(cluster_dir == "null") %>% pull(Term) %>% sort(), # only add if needed
+           negative = enriched_df_unw %>% filter(cluster_dir == "negative") %>% 
+             pull(Term) %>% unique() %>% sort())
 plot(euler(sX, shape = "ellipse"), quantities = TRUE)
 
 
