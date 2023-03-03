@@ -57,6 +57,13 @@ da <- read_tsv(paste0(data_path_tophits, "dense_area_unadj_tophits.tsv"))
 exposure_name <- unique(da$exposure)
 exp_code <- "DA_unadj"
 
+da <- read_tsv(paste0(data_path_tophits, "BCAC_DA_tophits.tsv")) 
+exposure_name <- unique(da$exposure)
+exp_code <- "DA_bcac"
+
+
+
+
 #nondense
 da <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits.tsv"))
 exposure_name <- unique(da$exposure)
@@ -70,6 +77,13 @@ da <- read_tsv(paste0(data_path_tophits, "nondense_area_unadj_tophits.tsv"))
 exposure_name <- unique(da$exposure)
 exp_code <- "NDA_unadj"
 
+da <- read_tsv(paste0(data_path_tophits, "BCAC_NDA_tophits.tsv")) 
+exposure_name <- unique(da$exposure)
+exp_code <- "NDA_bcac"
+
+
+
+
 # percent density
 da <- read_tsv(paste0(data_path_tophits, "percent_density_tophits.tsv"))
 exposure_name <- unique(da$exposure)
@@ -82,6 +96,11 @@ exp_code <- "PD_all"
 da <- read_tsv(paste0(data_path_tophits, "percent_density_unadj_tophits.tsv")) 
 exposure_name <- unique(da$exposure)
 exp_code <- "PD_unadj"
+
+
+da <- read_tsv(paste0(data_path_tophits, "BCAC_PMD_tophits.tsv")) 
+exposure_name <- unique(da$exposure)
+exp_code <- "PD_bcac"
 
 
 ```
