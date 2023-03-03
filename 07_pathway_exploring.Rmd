@@ -45,7 +45,7 @@ source("functions.R")
 
 ```{r}
 # dense
-exp_code <- "NDA_unadj" 
+exp_code <- "DA_unadj" 
 cluster_df <-read_tsv(paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
 
 ```
@@ -151,12 +151,12 @@ cluster_df_genes2_sub <- cluster_df_genes2 %>% dplyr::select(cluster, gene) %>% 
 cluster_df_genes2 <-  read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation.tsv")) 
 cluster_df_genes2_sub <- cluster_df_genes2 %>%  pivot_longer(cols = (3:5), names_to = "source", values_to = 'gene') %>% drop_na() %>% 
                         # DA & PD
-                        #mutate(cluster_dir = case_when(cluster %in% c("cluster_1", "cluster_Null") ~ "negative",
-                        #                               rsID == "rs73169097" ~ "negative",
-                        #                               TRUE ~ "positive")) %>% 
+                        mutate(cluster_dir = case_when(cluster %in% c("cluster_1", "cluster_Null") ~ "negative",
+                                                       rsID == "rs73169097" ~ "negative",
+                                                       TRUE ~ "positive")) %>% 
                         # DNDA
-                        mutate(cluster_dir = case_when(rsID == "rs75772194" ~ "positive",
-                                                       TRUE ~ "negative")) %>% 
+                        #mutate(cluster_dir = case_when(rsID == "rs75772194" ~ "positive",
+                        #                               TRUE ~ "negative")) %>% 
   
                         # group by source
                         group_by_at(vars(-source)) %>%
