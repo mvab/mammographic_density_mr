@@ -326,6 +326,7 @@ get_pheno_assoc <- function(snp, ao_eu, p_value = 10e-8){
   if (nrow(phwnogw) > 0){
     phwnogw <- phwnogw %>%  as.data.frame()  %>% 
       filter(id %in% ao_eu$id) %>% 
+      mutate(p=as.numeric(p)) %>% mutate(beta=as.numeric(beta)) %>% mutate(se=as.numeric(se)) %>% 
       arrange(p) %>% select(rsid,trait,  beta, se, p, id) %>% distinct() %>% 
       left_join(ao_eu %>% select(id, study=consortium, author)) %>% 
       mutate(source="OpenGWAS")
