@@ -527,14 +527,14 @@ dat_direct <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merge
                                                  "Luminal A", "Luminal B1", "Luminal B2", 
                                                   "HER2-enriched", "TNBC" )),
                      outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
-              mutate(effect = "Direct effect \n (accounted for childhood body size)")
+              mutate(effect = "Direct effect \n (accounted for\n childhood body size)")
   
 dat_total <- dat_all2 %>% 
-              mutate(effect = "Total effect") %>% distinct()
+              mutate(effect = "\nTotal effect") %>% distinct()
 
 dat_merged <- bind_rows(dat_total, dat_direct) %>%   
   mutate(exposure = factor(exposure, levels= rev(c("Dense area", "Non-dense area", "Percent density")))) %>% 
-  mutate(effect = factor(effect, levels= c(  "Total effect", "Direct effect \n (accounted for childhood body size)")))
+  mutate(effect = factor(effect, levels= c(  "\nTotal effect", "Direct effect \n (accounted for\n childhood body size)")))
 
   
 
@@ -544,29 +544,26 @@ p<-ggplot(dat_merged,
            aes(y=exposure, x=or,  colour=outcome, shape = effect_direction)) +
   geom_point(aes(size = effect), 
              position = ggstance::position_dodgev(height = 0.7))+
-  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.1, 
+  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=0.1, 
             position = ggstance::position_dodgev(height = 0.7)) +
-
-  theme_minimal_vgrid(11)+
+  theme_minimal_vgrid(10)+
   panel_border()+
   scale_color_manual(values=pal)+
   scale_shape_manual(values=c(16,1))+
-  scale_size_manual(values=c(3.5, 2.5))+
-  scale_x_continuous(breaks=c(0,1,2,3))+
-
+  scale_size_manual(values=c(2.8, 2.1))+
+  scale_x_log10(breaks = c(0,1,2,3))+
   theme(strip.text = element_text(face = 'bold'),
-        strip.text.y = element_text(face = 'bold'),
+        axis.text.y = element_text(angle = 90, vjust=1, hjust = 0.5, face = "bold"),
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_line(),
+         panel.spacing = unit(1, "lines"),
         )+
-  geom_vline(xintercept=1, linetype='longdash') +
-
+  geom_vline(xintercept=1, linetype=3) +
   facet_grid(cols=vars(effect))+
-  labs(color = "Outcome",y = "", x = "OR", shape="")+
+  labs(color = "Outcome",y = "Exposure\n", x = "Odds ratio", shape="")+
   theme(legend.position = "right", legend.direction = "vertical", 
         plot.title.position = "plot")+
   guides(colour = guide_legend(reverse = TRUE), shape="none", size="none")
-
 
 ```
 
