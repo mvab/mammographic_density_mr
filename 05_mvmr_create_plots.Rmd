@@ -166,9 +166,11 @@ all_data <- bind_rows(total_data, direct_data) %>%
                                       "HER2-enriched", "TNBC" )),
          outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
   mutate(effect = ifelse(exposure == "Childhood body size", "total", "direct")) %>% 
-  mutate(exposure = factor(exposure, levels= c(
+  mutate(exposure = factor(exposure, levels= rev(c(
     "Childhood body size",   "Childhood body size\n accounted for\n Dense area",   
-    "Childhood body size\n accounted for\n Non-dense area",  "Childhood body size\n accounted for\n Percent density")))
+    "Childhood body size\n accounted for\n Non-dense area",  "Childhood body size\n accounted for\n Percent density")))) %>% 
+  mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                              ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
 
 pal = wesanderson::wes_palette("GrandBudapest1")
 #pal = c('steelblue', pal[c(3,2,1)])
@@ -176,27 +178,53 @@ pal = wesanderson::wes_palette("GrandBudapest1")
 
 #### DOES NOT WORK ATM - can figure out the stupif grid pacement -- see ggforest below! (tmp wokrs)
 
-qq<-ggplot(all_data, aes(y=rev(exposure), x=or, label=outcome, colour=outcome)) +
-  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.3) +
-  geom_point(size=2)+
-  #geom_point(size=2, 
-  #           position = ggstance::position_dodgev(height = 0.9))+
-  #geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.1, 
-  #          position = ggstance::position_dodgev(height = 0.9)) +
-  geom_vline(xintercept=1, linetype='longdash') +
-  theme_minimal_hgrid(10) +
-  scale_x_continuous(breaks=seq(0.5,1.1,0.1))+
-  #scale_color_manual(values=pal)+
-  scale_y_discrete(position = "right")+
-  theme(strip.text = element_text(face = 'bold'))+
-  # version 1 facet_wrap(outcome ~ ., scale="free_y",  ncol = 1)+
-  # version 2 facet_wrap(exposure~ ., nrow=4)+
-  facet_grid(rows=vars(outcome), cols=vars(exposure), scales = "free") +
-  labs(color = "",y = "", x = "Odds ratio", subtitle="" )+
-  theme(legend.position = "none",
-        legend.direction = "vertical", 
-        axis.text.y=element_blank()) #remove y axis labels
+#qq<-ggplot(all_data, aes(y=rev(exposure), x=or, label=outcome, colour=outcome)) +
+#  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.3) +
+#  geom_point(size=2)+
+#  #geom_point(size=2, 
+#  #           position = ggstance::position_dodgev(height = 0.9))+
+#  #geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.1, 
+#  #          position = ggstance::position_dodgev(height = 0.9)) +
+#  geom_vline(xintercept=1, linetype='longdash') +
+#  theme_minimal_hgrid(10) +
+#  scale_x_continuous(breaks=seq(0.5,1.1,0.1))+
+#  #scale_color_manual(values=pal)+
+#  scale_y_discrete(position = "right")+
+#  theme(strip.text = element_text(face = 'bold'))+
+#  # version 1 facet_wrap(outcome ~ ., scale="free_y",  ncol = 1)+
+#  # version 2 facet_wrap(exposure~ ., nrow=4)+
+#  facet_grid(rows=vars(outcome), cols=vars(exposure), scales = "free") +
+#  labs(color = "",y = "", x = "Odds ratio", subtitle="" )+
+#  theme(legend.position = "none",
+#        legend.direction = "vertical", 
+#        axis.text.y=element_blank()) #remove y axis labels
   
+
+pal<-(c(unname(yarrr::piratepal("pony"))))
+pal[6:7]<-c('darkgrey', "#FFEA5E")
+p<-ggplot(all_data,
+           aes(y=exposure, x=or,  colour=outcome, shape = effect_direction)) +
+  geom_point(size=2.2, 
+             position = ggstance::position_dodgev(height = 0.7))+
+  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.1, 
+            position = ggstance::position_dodgev(height = 0.7)) +
+  scale_x_log10()+
+
+  theme_minimal_vgrid(10)+
+  geom_vline(xintercept=1, linetype='longdash') +
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
+  theme(strip.text = element_text(face = 'bold'),
+        strip.text.y = element_text(face = 'bold'),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(),
+        )+
+  panel_border()+
+  labs(color = "Outcome",y = "Exposure\n", x = "Odds ratio", shape="")+
+  theme(legend.position = "right", legend.direction = "vertical", 
+        plot.title.position = "plot")+
+  guides(colour = guide_legend(reverse = TRUE), shape="none")
+
 
 
 
