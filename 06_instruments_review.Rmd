@@ -551,7 +551,7 @@ library(cowplot)
 
 four_plots <-
   plot_grid(forest_presso, forest_radial,
-           clust_plot_best, forest_by_clusters,
+           clust_plot_best, forest_by_clusters$p,
            labels = c("a",
                       "b",
                       "c",
@@ -560,13 +560,17 @@ four_plots <-
           axis = "t", nrow=2) 
 
 ggsave(plot=four_plots, 
-      height=10, width=10, scale=1, dpi=300,
+      #height=10, width=10, scale=1, dpi=300, # DA
+      #height=8, width=10, scale=1, dpi=300, # PD
+      height=7, width=10, scale=1, dpi=300, # PD
        filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_combined_plots.png"))
 
 
 
-all <-
-  plot_grid(top_row, bottom_row, ncol = 1, rel_heights = c(0.33, 0.66))
+
+
+
+all <- plot_grid(top_row, bottom_row, ncol = 1, rel_heights = c(0.33, 0.66))
 
 # version with phewas:
 
