@@ -173,8 +173,7 @@ mr_presso_df <- as.data.frame(mr_presso$`Main MR results`) %>%
                 generate_odds_ratios() %>% 
                 select(Exposure, Outcome, everything())
 
-write_tsv(mr_presso_df,
-          paste0(results_path, dir, "/presso_radial/", exp_code,"_presso_results.tsv"))
+
 
 outlier_indicies <- mr_presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`
 
@@ -201,6 +200,15 @@ forest_presso <- mr_forest_plot_outliers(res_single_presso,  outliers_list= outl
 ggsave(plot=forest_presso, 
       height=5, width=6,
        filename=paste0(results_path, dir, "/presso_radial/", exp_code, "_snps_outliers_forest_presso.png"))
+
+
+# presso supl file
+
+supl <- res_single_presso %>% 
+  mutate(is_outlier = ifelse(SNP %in% outliers, T, F)) %>% 
+  select(-nsnp, -id.exposure)
+
+write_tsv(supl,  paste0(results_path, dir, "/presso_radial/", exp_code,"_presso_results.tsv") )
 ```
 
 
@@ -269,6 +277,14 @@ ggsave(plot=forest_radial,
       height=5, width=6,
       filename=paste0(results_path, dir, "/presso_radial/", exp_code,"_snps_outliers_forest_radial.png"))
 
+# radial supl file
+
+supl <- res_outliers_radial %>% 
+  mutate(is_outlier = ifelse(SNP %in% ivwrad$sortoutliers$SNP, T, F)) %>% 
+  select(-nsnp, -id.exposure)
+
+write_tsv(supl, paste0(results_path, dir, "/presso_radial/", exp_code,"_radial_supl.tsv"))
+
 
 ```
 
@@ -301,9 +317,11 @@ cluster_results <- mr_clust_em(theta = cluster_data$b,
                                    bxse = cluster_data$se.exposure,
                                    byse = cluster_data$se.outcome,
                                    obs_names = cluster_data$SNP)
+save(cluster_results, file=paste0(results_path,"MRClust_results/",exp_code ,"_mrclust_results.Rdata"))
+load(file=paste0(results_path,"MRClust_results/",exp_code ,"_mrclust_results.Rdata"))
 
-clusters = unique(cluster_results$results$best$cluster_class)
-clusters
+
+#clusters = unique(cluster_results$results$best$cluster_class)
 
 clust_plot_best = cluster_results$plots$two_stage +
   ggplot2::xlab(paste0("Genetic association with ", exposure_name)) +
@@ -395,11 +413,19 @@ extra_cluster_df <- data.frame(rsID = c("cluster_1", "cluster_2", "cluster_3", "
                               cluster = c("cluster_1", "cluster_2", "cluster_3", "cluster_4"))
 clust_snp_df_top_cluster <- bind_rows(clust_snp_df_top_cluster,extra_cluster_df)
 
-forest_by_clusters <- mr_forest_plot_clusters(res_single_w_clust,  outliers_df=clust_snp_df_top_cluster, outliers_colour_list=cbpalette)
-
-ggsave(plot=forest_by_clusters, 
+forest_by_clusters <- mr_forest_plot_clusters(res_single_w_clust, 
+                                              outliers_df=clust_snp_df_top_cluster, outliers_colour_list=cbpalette)
+forest_by_clusters$p
+ggsave(plot=forest_by_clusters$p, 
       height=5, width=6,
        filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters_forest.png"))
+
+# supl cluster
+supl <- full_join(forest_by_clusters$dat, out) %>% generate_odds_ratios() %>% 
+   select(SNP, exposure, outcome, b,se, starts_with('or'), cluster, probability) %>% arrange( SNP, cluster) %>% 
+  filter(SNP != "")
+
+write_tsv(supl, paste0(results_path,"MRClust_results/",exp_code ,"_cluster_supl.tsv"))
 
 ```
 
