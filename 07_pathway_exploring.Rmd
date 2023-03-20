@@ -45,7 +45,7 @@ source("functions.R")
 
 ```{r}
 # dense
-exp_code <- "NDA_unadj" 
+exp_code <- "PD_unadj" 
 cluster_df <-read_tsv(paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
 
 ```
@@ -182,16 +182,38 @@ res_single2<- res_single %>%
                 group_by_at(vars(-gene)) %>%
                 summarize(gene = toString(gene)) %>%
                 ungroup() 
-  
 
 p_genes <- forest_by_clusters +
-  geom_text(data=res_single2, aes(y=SNP, x=b, label=gene),size =2.5 , hjust=0.1, vjust=-0.5)+xlim(-1.5,2.1)
+  geom_text(data=res_single2, aes(y=SNP, x=b, label=gene),size =2.5 , hjust=0.5, vjust=-0.5)+xlim(-3,3)+labs(subtitle = "")
 
-ggsave(paste0(results_path, "SNP_to_gene_to_pathway/forest_plot_gene_names_", exp_code, ".png"),
-       plot=p_genes, scale=1.4, 
-       width=10, height=10,
-       #width=10, height=5,
-       units=c("cm"), dpi=300, limitsize=F)
+
+# single plot save
+#ggsave(paste0(results_path, "SNP_to_gene_to_pathway/forest_plot_gene_names_", exp_code, ".png"),
+#       plot=p_genes, scale=1.4, 
+#       width=10, height=10,
+#       #width=10, height=5,
+#       units=c("cm"), dpi=300, limitsize=F)
+     
+# building 3-plot figure
+da_plot <- p_genes
+pd_plot<- p_genes
+nda_plot <- p_genes
+
+library(cowplot)
+three_plots <-
+  plot_grid(da_plot, pd_plot,nda_plot,
+           labels = c("a",
+                      "b",
+                      "c"),
+           label_size = 12, rel_heights = c(0.75, 0.50, 0.39),
+          axis = "t", nrow=3) 
+
+ggsave(plot=three_plots, 
+      height=14, width=7, scale=0.8, dpi=300, 
+       filename=paste0(results_path,"MRClust_results/forest_plot_w_genes_combined.png"))
+
+
+
 
 ```
 
