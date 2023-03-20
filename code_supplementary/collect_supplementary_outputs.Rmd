@@ -148,28 +148,91 @@ presso_da <- read_tsv(paste0(results_path, current_trait_category, "/presso_radi
 presso_nda <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "NDA_unadj" ,"_presso_results.tsv"))
 presso_pd <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "PD_unadj" ,"_presso_results.tsv"))
 mrpresso = bind_rows(presso_da, presso_nda, presso_pd)
+mrpresso$analysis <- "MR-PRESSO"
 
 
+# Radial 
+radial_da <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "DA_unadj", "_radial_supl.tsv"))
+radial_nda <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "NDA_unadj", "_radial_supl.tsv"))
+radial_pd <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "PD_unadj", "_radial_supl.tsv"))
+radial <- bind_rows(radial_da, radial_nda, radial_pd)
+radial$analysis <- "Radial-MR"
+# cluster 
+cluster_da <- read_tsv(paste0(results_path,"MRClust_results/","DA_unadj" ,"_cluster_supl.tsv"))
+cluster_nda <- read_tsv(paste0(results_path,"MRClust_results/","NDA_unadj" ,"_cluster_supl.tsv"))
+cluster_pd <- read_tsv(paste0(results_path,"MRClust_results/","PD_unadj" ,"_cluster_supl.tsv"))
+cluster <- bind_rows(cluster_da, cluster_nda, cluster_pd)
+cluster$analysis <- "MR-Clust"
 
+
+# phewas
+
+phewas_da <- read_tsv(paste0(results_path,"phewas/","DA_unadj" ,"_phewas_results.tsv")) %>% mutate(analysis = "PheWAS DA") %>% select(analysis, everything())
+phewas_nda <- read_tsv(paste0(results_path,"phewas/","NDA_unadj" ,"_phewas_results.tsv")) %>% mutate(analysis = "PheWAS NDA") %>% select(analysis, everything())
+phewas_pd <- read_tsv(paste0(results_path,"phewas/","PD_unadj" ,"_phewas_results.tsv")) %>% mutate(analysis = "PheWAS PD") %>% select(analysis, everything())
+
+
+```
+
+
+```{r}
+current_trait_category <- "md_unadj" 
 guide_table <- read_xlsx(paste0(results_path, "guide_table_",current_trait_category,".xlsx"))
 
 #### write to xls
 sheets <- list("Guide" = guide_table,
-               "S3 bmi_to_md" = bmi_to_md, 
-               "S4 bmi_to_md_sens" = bmi_to_md_sens,
-               "S5 mvmr_BMIs_to_md"=mvmr_BMIs_to_md, 
-               "S6 mvmr_BMIs_to_md_sens"=mvmr_BMIs_to_md_sens, 
-               "S7 aam_to_md" = aam_to_md, # cmi total is in 1
-               "S8 aam_to_md_sens" = aam_to_md_sens,
-               "S9 mvmr_aaM_cbmi_to_md" = mvmr_aaM_cbmi_to_md,
-               "S10 mvmr_aaM_cbmi_to_md_sens" = mvmr_aaM_cbmi_to_md_sens,
-               "S11 md_to_bc" = md_to_bc,
-               "S12 md_to_bc_sens" = md_to_bc_sens,
-               "S13 mvmr_cBMI_md_to_bc"= mvmr_cBMI_md_to_bc,
-               "S14 mvmr_cBMI_md_to_bc_sens" = mvmr_cBMI_md_to_bc_sens,
-               "S15 mrpresso" = mrpresso
+               "S3" = bmi_to_md, 
+               "S4" = bmi_to_md_sens,
+               "S5"=mvmr_BMIs_to_md, 
+               "S6"=mvmr_BMIs_to_md_sens, 
+               "S7" = aam_to_md, # cmi total is in 1
+               "S8" = aam_to_md_sens,
+               "S9" = mvmr_aaM_cbmi_to_md,
+               "S10" = mvmr_aaM_cbmi_to_md_sens,
+               "S11" = md_to_bc,
+               "S12" = md_to_bc_sens,
+               "S13"= mvmr_cBMI_md_to_bc,
+               "S14" = mvmr_cBMI_md_to_bc_sens,
+               "S15" = tibble(), # TODO
+               "S16" = mrpresso,
+               "S17" = radial,
+               "S18" = cluster,
+               "S19" = phewas_da,
+               "S20" = phewas_nda,
+               "S21" = phewas_pd
+               
                ) 
 write_xlsx(sheets, paste0(results_path, "all_results_",current_trait_category,".xlsx"))
+
+```
+
+
+```{r}
+# pathway analysis stuff
+current_trait_category <- "md_unadj" 
+
+# SNP to gene
+genes_da<-read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "DA_unadj", "_snps_clusters_gene_annotation.tsv")) 
+genes_nda<-read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "NDA_unadj", "_snps_clusters_gene_annotation.tsv")) 
+genes_pd<-read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "PD_unadj", "_snps_clusters_gene_annotation.tsv")) 
+
+# gene to pathways
+pathways_da <- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "DA_unadj", "_pathways_by_clusters_tidy.tsv")) 
+pathways_nda <- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "NDA_unadj", "_pathways_by_clusters_tidy.tsv")) 
+pathways_pd <- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "PD_unadj", "_pathways_by_clusters_tidy.tsv")) 
+
+
+#### write to xls
+sheets <- list( 'S22 genes_DA' = genes_da,
+                'S23 genes_NDA' = genes_nda,
+                'S24 genes_PD' = genes_pd,
+                'S25 pathways_DA'  = pathways_da ,
+                'S26 pathways_NDA' = pathways_nda,
+                'S27 pathways_PD'  = pathways_pd )
+
+write_xlsx(sheets, paste0(results_path, "all_results_",current_trait_category,"_genes_pathways.xlsx"))
+
+
 
 ```
 
