@@ -353,66 +353,10 @@ dat_all<- dat_all %>%
                              grepl("Percent", exposure) ~ 'Percent density', 
                              TRUE ~ 'Dense area')) 
 
-
-#dat_all %>% kable_it()
-
 # rearrange to be in the required order
 dat_all<-arrange(dat_all, exposure) %>% mutate(exposure=as.factor(exposure))
 dat_all$exposure <- forcats::fct_inorder(dat_all$exposure) %>% forcats::fct_rev() 
 ```
-
-```{r}
-## NOT USED##
-#pal<-(c(unname(yarrr::piratepal("pony"))))[c(1,8,5)]
-#p<-ggplot(dat_all, aes(y=exposure, x=or, label=outcome, colour=exposure, shape=method)) +
-#  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.3) +
-#  geom_point(size=2)+
-#  scale_color_manual(values=pal)+
-#  scale_shape_manual(values = c(19,20)) +
-#  geom_vline(xintercept=1, linetype='longdash') +
-#  geom_text(aes(label=OR_CI),hjust=-0.1, vjust=-0.6, size =2.5, color = 'darkgrey')+
-#  theme_minimal_hgrid(10, rel_small = 1) +
-#  facet_wrap(~outcome, ncol=1)+
-#  labs(color = "",y = "", x = "Odds ratio",
-#       title= paste0("Univariate MR results for ", gsub("_", " ",current_trait_category) ,", 95% CI") )+
-#  theme(legend.position = "none", plot.title.position  = "plot")
-#
-#ggsave(paste0("figures/mediators_",current_trait_category ,"-to_BCAC_", bc_data,"_IVW.png"),
-#       plot=p, #scale=1, 
-#       width=10, height=5,
-#       units=c("cm"), dpi=200, limitsize=F)
-#
-```
-
-
-```{r}
-### try with adult BMI adjusted data --- ignore this block for basic results
-
-#dat_all2 <- read_tsv( paste0(results_path, current_trait_category, #"/mvmr/merged/merged_mvmr_adultBMI-",current_trait_category,"-to-BCAC.tsv")) %>% 
-#  filter(exposure != "Adult BMI") %>% 
-#   filter(outcome != "BRCA1_TN") %>% 
-#  select(exposure, outcome, or, or_lci95, or_uci95) %>% 
-#  mutate(outcome = case_when(outcome =="Breast cancer (new)" ~ "BCAC 2020",
-#                             outcome =="Breast cancer" ~ "BCAC 2017",
-#                             outcome =="ER+ breast cancer" ~ "ER+",
-#                             outcome =="ER- breast cancer" ~ "ER-",
-#                                           outcome =="Luminal A"    ~ "Luminal A",   
-#                                           outcome =="Luminal B, HER2+"   ~ "Luminal B1",  
-#                                           outcome =="Luminal B, HER2-" ~ "Luminal B2" ,
-#                                           outcome =="HER2-enriched"  ~ "HER2-enriched" ,
-#                                           outcome =="TN Basal"  ~ "TNBC" )) %>% 
-#   mutate(outcome = factor(outcome, 
-#                          levels = c("BCAC 2017","BCAC 2020",
-#                                     "ER+", "ER-",
-#                                     "Luminal A", "Luminal B1", "Luminal B2", 
-#                                      "HER2-enriched", "TNBC" )),
-#         outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
-#   mutate(exposure = factor(exposure, levels= rev(c("Dense area", "Non-dense area", "Percent density")))) %>% 
-#   mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
-#                              ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
-  
-```
-
 
 
 
