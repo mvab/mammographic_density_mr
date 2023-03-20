@@ -21,9 +21,7 @@ library(ieugwasr)
 
 library(cowplot)
 library(ggplot2)
-set.seed(999) #DA
-set.seed(505) # PD
-set.seed(211)# NDA
+
 ```
 
 ```{r message=F}
@@ -119,6 +117,11 @@ harmonised<- harmonise_data(exposure_dat = da,
              TwoSampleMR::split_outcome() %>% 
              separate(outcome, sep = "\\(", into = c("outcome", "tmp"), remove = T) %>% 
              mutate(outcome = paste(outcome, "(BCAC 2017)") )
+
+res_single <- mr_singlesnp(harmonised, 
+                               all_method=c("mr_ivw_mre","mr_egger_regression", "mr_weighted_median"))%>% 
+                  mutate(SNP = gsub("Inverse variance weighted (multiplicative random effects)", "IVW (MRE)", SNP, fixed = T)) 
+
   
 res <- mr(harmonised) %>% 
   generate_odds_ratios()
@@ -129,9 +132,6 @@ egger_int <- mr_pleiotropy_test(harmonised)
 
 p1 <- mr_scatter_plot_manual(res, harmonised)
 
-res_single <- mr_singlesnp(harmonised, 
-                               all_method=c("mr_ivw_mre","mr_egger_regression", "mr_weighted_median"))%>% 
-                  mutate(SNP = gsub("Inverse variance weighted (multiplicative random effects)", "IVW (MRE)", SNP, fixed = T)) 
 
 p2 <- mr_forest_plot(res_single) 
 
