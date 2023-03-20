@@ -471,75 +471,67 @@ snp_phewas_df<-  snp_phewas %>%
   purrr::reduce(plyr::rbind.fill) %>% 
   mutate(beta=as.numeric(beta)) %>%
   mutate(se=as.numeric(se))
-snp_phewas_df %>% glimpse()
 
-snp_phewas_df2 <- left_join(snp_phewas_df, clust_snp_df_top_cluster %>% select(-probability), by=c('rsid' = 'rsID')) %>% 
+
+snp_phewas_df2 <- left_join(snp_phewas_df, clust_snp_df_top_cluster %>% dplyr::select(-probability), by=c('rsid' = 'rsID')) %>% 
                  mutate(log10P = -log10(p)) %>% 
                  mutate(log10P_trunc = ifelse(log10P >= 50, 50, log10P)) %>% 
-                 left_join(res_single %>% select(rsid=SNP, MD_wald_ratio_beta = b), by='rsid') 
+                 left_join(res_single %>% dplyr::select(rsid=SNP, MD_wald_ratio_beta = b), by='rsid') 
 
-snp_order = res_single %>% select(SNP,  b) %>% filter(grepl("rs", SNP)) %>% arrange(b) %>% pull(SNP)
+snp_order = res_single %>% dplyr::select(SNP,  b) %>% filter(grepl("rs", SNP)) %>% arrange(b) %>% pull(SNP)
 
 snp_phewas_df2 <- snp_phewas_df2  %>%   mutate(rsid = factor(rsid, levels=snp_order))
 
 
 snp_phewas_df3 <- snp_phewas_df2 %>% 
 mutate(exposure_cat = case_when(
-      grepl("Drug|Medication|prescription medications", trait, ignore.case = T) ~ "Drugs",
-      grepl("breast cancer|Malignant neoplasm of breast", trait, ignore.case = T) ~ "Breast related",
-      grepl("^ENS", trait, ignore.case = T) ~ "eQTL",
-      grepl("blood pressure|heart|Pulse|Cardiac|thromboembolism", trait, ignore.case = T) ~ "CVD_related",
-      grepl("operation|operative|Methods of admission|Number of treatments|Spells in hospital|hospital episode", trait, ignore.case = T) ~ "Medical Procedures",
-      grepl("cylindrical|meridian|asymmetry|glasses|hearing|Corneal|ocular|logMAR|teeth|dental|Spherical power", trait,  ignore.case = T) ~ "eye_hearing_dental",
-      grepl("waist|hip c|hip r|obesity|trunk|mass|weight|bmi|body size|height|impedance|fat percentage|body fat|Basal metabolic rate", trait, ignore.case = T) ~ "Antrophometric",
-      grepl("FEV1|FVC|Wheeze|cough", trait,  ignore.case = T) ~ "lung_related",
-      grepl("count|volume|percentage|reticulocyte|Platelet", trait,  ignore.case = T) ~ "cells_related",
-      grepl("alco|wine|spirits|beer", trait, ignore.case = T) ~ "Alcohol", # must be before diet
-      grepl("vitamin|suppl", trait, ignore.case = T) ~ "Diet and supplements",
-      grepl("intake|diet|food|milk|dairy|coffee|cereal|butter|bread|Never eat", trait, ignore.case = T) ~ "Diet and supplements",
-      grepl("age at|age started|parous|contraceptive pill|replacement therapy|HRT|menopause|menarche|live birth|oophorectomy|hysterectomy|menstrual|sexual", trait, ignore.case = T) ~ "Reproductive",
-      grepl("smok|cigar", trait, ignore.case = T) ~ "Smoking",
-      grepl("activi|transport |diy|walking|walked|Time spent|Weekly usage of|stair climbing|walk|spend outdoors", trait, ignore.case = T) ~ "Physical activity",
-      grepl("sleep|Snoring|chronotype|Getting up in morning|Nap during day", trait, ignore.case = T) ~ "Sleep",
-      #grepl("Iron|Testosterone|Urate|Urea|Glucose|Sodium", trait, ignore.case = T) ~ 'Other biomarkers',
-      grepl("LDL|HDL|VLDL|cholest|trigl|cholesterol|glyceride|total lipids|Serum total", trait, ignore.case = T) ~ 'Lipids',
-      #grepl("Albumin|Apoliprotein|Adiponectin|Lipoprotein|reactive protein|Creatinine|Ferritin|Transferrin|transferase|Haemoglobin|cystatin|SHBG|bilirubin|Total protein|phosphatase|IGF", trait, ignore.case = T) ~ 'Proteins',
-      grepl("Qualifications|GCSE|Townsend|schooling|College|intelligence|arithmetic|education", trait, ignore.case = T) ~ 'Education',
-      grepl("anxiety|feelings|embarrassment|worr|Bulimia|depressed|guilty|Miserableness|mood|Neuroticism|unenthusiasm|tenseness|Loneliness|self-harm|Risk taking|highly strung|ADHD|Drive faster|nerves|irritability|satisfaction", trait, ignore.case = T) ~ 'psychiatric_or_mental_health',
-      
-      TRUE ~ 'other')) %>% 
-    #mutate(exposure_cat = ifelse(grepl("LDL|HDL|VLDL|cholest|trigl|cholesterol|glyceride|total lipids|Serum total", exposure.trait, ignore.case = T) & exposure_cat %in% c('Metabolites', 'Other biomarkers'), "Lipids", exposure_cat)) %>%  # recapture those in met-a
-    mutate(exposure_cat = ifelse(grepl("Average number|Ratio of", trait, ignore.case = T) , "other", exposure_cat))
-
-#snp_phewas_df3 %>% count(exposure_cat) %>% View()
-
-snp_phewas_df3<- snp_phewas_df3 %>% mutate(label = case_when(exposure_cat == "Breast related" ~ "Breast cancer",
-                                                             #exposure_cat == "Antrophometric" ~ "antro",
-                                                             TRUE ~ "Other phenotypes"))
+    grepl("breast cancer|Malignant neoplasm of breast|breast|mamm", trait, ignore.case = T) ~ "Breast related",
+    TRUE ~ 'Other')) 
+snp_phewas_df3 %>% filter(exposure_cat == "Breast related") %>% count(trait) %>% View()
 
 
+breast_exceptions <- c("Breast size", "Breast size bra cup size in women", "Hypertrophy of breast", "Disorders of breast",
+                       "Illnesses of mother: Breast cancer", "Mammographic density dense area")
 
-snp_phewas_df3 <- snp_phewas_df3 %>%  filter(p<=1e-08)
+snp_phewas_df3<- snp_phewas_df3 %>% 
+  mutate(label = case_when((exposure_cat == "Breast related" & !trait %in% breast_exceptions) ~ "Breast cancer",
+                                                             TRUE ~ "Other phenotypes")) %>% 
+  mutate(include_in_plot = ifelse (p<=5e-08 , T, F))
+
+snp_phewas_df3 %>%  filter(exposure_cat == "Breast related") %>% dplyr::select(rsid, trait, log10P, study, source, exposure_cat, label) %>% arrange(trait, rsid) %>% View()
+
+write_tsv(snp_phewas_df3 %>% arrange(exposure_cat, rsid), 
+          paste0(results_path,"phewas/",exp_code ,"_phewas_results.tsv"))
+
+
 
 
 cbpalette <- c(cluster_Null = "#CC79A7", cluster_Junk = "#000000", `cluster_1` = "#999999", 
     `cluster_2` = "#0072B2", `cluster_3` = "#D55E00", `cluster_4` = "#F0E442", 
     `cluster_5` = "#009E73",  `cluster_6` = "#56B4E9", `cluster_7` = "#E69F00")
 
-
-phewas_plot <- ggplot(data = snp_phewas_df3, mapping = aes(x = rsid, y = log10P_trunc, colour=cluster, shape= label, size=label)) + 
+snp_phewas_df3_sub <- snp_phewas_df3 %>%  filter(p<=5e-08)
+phewas_plot <- ggplot(data = snp_phewas_df3_sub, 
+                      mapping = aes(x = rsid, y = log10P_trunc, colour=cluster, shape= label, size=label)) + 
   # modify jitter geom to look like a bubble plot
   geom_jitter(alpha=0.8,  position = position_jitter(width = 0.4))+
   theme_minimal_vgrid(8, rel_small = 1) +
   scale_color_manual(values=cbpalette)+
   scale_shape_manual(values=c(18, 3))+
-  scale_size_manual(values=c(4, 2))+
+  scale_size_manual(values=c(3.7, 2))+
   coord_flip()+
   theme(axis.text.x = element_text(angle = 0, hjust = 1),
         legend.position = "right")+
-  labs(subtitle="PheWAS results", colour= "Cluster", shape  = "Association with",
+  labs(subtitle="PheWAS results for Non-dense area SNPs", colour= "Cluster", shape  = "Association with",
        y = "-log10 p-value of association with other traits", x = "Non-dense SNPs, by cluster", colour= "cluster")+
   guides(size="none")
+
+ggsave(plot=phewas_plot, 
+      #height=4, width=9, scale=1, dpi=300, # DA
+      height=3, width=9, scale=1, dpi=300, # NDA
+       filename=paste0(results_path,"phewas/",exp_code ,"_phewas_plot.png"))
+
+
 
 
 ```
