@@ -225,7 +225,8 @@ mr_forest_plot_clusters <- function (d,  outliers_df, outliers_colour_list) {
                   subtitle = "Single SNP forest plot with MR-Clust clusters",
                   x = paste0("MR effect size for\n'", 
                                      d$exposure[1], "' on '", d$outcome[1], "'"))
-  return(out)
+  return(list(p=out,
+              dat = d))
   
   
 }
