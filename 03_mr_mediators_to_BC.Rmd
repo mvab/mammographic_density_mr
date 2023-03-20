@@ -459,8 +459,8 @@ p<-ggplot(dat_all2,
         panel.grid.major.x = element_line(),
         )+
   panel_border()+
-  labs(color = "",y = "", x = "OR", shape="")+
-  theme(legend.position = "right", legend.direction = "vertical", 
+  labs(color = "",y = "", x = "Odds ratio", shape="")+
+  theme(legend.position = "none", legend.direction = "vertical", 
         plot.title.position = "plot")+
   guides(colour = guide_legend(reverse = TRUE), shape="none")
 
@@ -471,35 +471,49 @@ p<-ggplot(dat_all2,
 
 
 ```{r}
+# figure S3
+library(cowplot)
+# save "md" plot
+p_adj <- p
+# save "md_unadj"
+p_unadj <- p
+
+x<- plot_grid( p_unadj, p_adj, labels = c("Unadjusted", "Adjusted for BMI"), hjust = -0.1,
+               ncol = 2, label_size = 12, rel_widths  = c(0.45, 0.55))
+
+```
+
+
+```{r}
 
 # same but using ggforestplot
-dat_all3 <- dat_all %>% select(exposure, outcome, b, se, pval) %>% 
-  mutate(outcome = case_when(outcome =="Breast cancer 2020" ~ "BCAC 2020",
-                             outcome =="Breast cancer 2017" ~ "BCAC 2017",
-                             outcome =="ER+ Breast cancer" ~ "ER+ Breast cancer",
-                             outcome =="ER- Breast cancer" ~ "ER- Breast cancer",
-                             outcome =="Luminal A"    ~ "Luminal A",   
-                             outcome =="Luminal B"   ~ "Luminal B1",  
-                             outcome =="Luminal B-HER2 negative" ~ "Luminal B2" ,
-                             outcome =="HER2 enriched"  ~ "HER2-enriched" ,
-                             outcome =="TNBC Basal-like"  ~ "TNBC" )) %>% 
-  mutate(outcome = factor(outcome, 
-                          levels = c("BCAC 2017","BCAC 2020",
-                                     "ER+ Breast cancer","Luminal A", "Luminal B1", "Luminal B2", 
-                                     "ER- Breast cancer", "HER2-enriched", "TNBC" )),
-         outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
-  rename(name=exposure, trait=outcome)
-
-
-ggforestplot::forestplot(
-  df = dat_all3,
-  estimate = b,
-  pvalue = pval,
-  logodds = F,
-  xlab = "OR",
-  title = "title",
-  colour = trait
-)
+#dat_all3 <- dat_all %>% select(exposure, outcome, b, se, pval) %>% 
+#  mutate(outcome = case_when(outcome =="Breast cancer 2020" ~ "BCAC 2020",
+#                             outcome =="Breast cancer 2017" ~ "BCAC 2017",
+#                             outcome =="ER+ Breast cancer" ~ "ER+ Breast cancer",
+#                             outcome =="ER- Breast cancer" ~ "ER- Breast cancer",
+#                             outcome =="Luminal A"    ~ "Luminal A",   
+#                             outcome =="Luminal B"   ~ "Luminal B1",  
+#                             outcome =="Luminal B-HER2 negative" ~ "Luminal B2" ,
+#                             outcome =="HER2 enriched"  ~ "HER2-enriched" ,
+#                             outcome =="TNBC Basal-like"  ~ "TNBC" )) %>% 
+#  mutate(outcome = factor(outcome, 
+#                          levels = c("BCAC 2017","BCAC 2020",
+#                                     "ER+ Breast cancer","Luminal A", "Luminal B1", "Luminal B2", 
+#                                     "ER- Breast cancer", "HER2-enriched", "TNBC" )),
+#         outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
+#  rename(name=exposure, trait=outcome)
+#
+#
+#ggforestplot::forestplot(
+#  df = dat_all3,
+#  estimate = b,
+#  pvalue = pval,
+#  logodds = F,
+#  xlab = "OR",
+#  title = "title",
+#  colour = trait
+#)
 
 ```
 
