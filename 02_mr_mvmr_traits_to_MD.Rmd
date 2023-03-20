@@ -43,7 +43,7 @@ source("functions_mvmr.R")
 ```{r}
 
 # specify group to process if data is in textfiles
-current_trait_category <- "md_unadj"
+current_trait_category <- "md"
 outcomes <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(!is.na(full_data)) %>%  pull(trait_file_name) 
 
 md_instruments <- data_lookup %>% filter(trait_category == current_trait_category) %>% pull(tophits_data)
@@ -625,5 +625,54 @@ p<-ggplot(dat_merged, aes(y=exposure, x=b, label=outcome, shape=effect_direction
 
 ```
 
+# plot for aaM to MD, comparing md and md_unadj
+```{r}
+current_trait_category <- "md"
+adj_md<- read_tsv(paste0(results_path, current_trait_category,"/", current_trait_category,"_w_traits_biMR_results.tsv")) %>% 
+  filter(exposure == "Age when periods started (menarche)") %>% 
+  filter(method == "Inverse variance weighted") %>% 
+  mutate(analysis = "Adjusted for BMI MD GWAS")
+
+current_trait_category <- "md_unadj"
+unadj_md<- read_tsv(paste0(results_path, current_trait_category,"/", current_trait_category,"_w_traits_biMR_results.tsv"))%>% 
+  filter(exposure == "Age when periods started (menarche)") %>% 
+  filter(method == "Inverse variance weighted") %>% 
+  mutate(analysis = "Unadjusted MD GWAS")
+
+merged <-bind_rows(adj_md,unadj_md ) %>%
+        mutate(exposure = "Age at menarche") %>% 
+        mutate(analysis = factor(analysis, levels = c("Unadjusted MD GWAS", "Adjusted for BMI MD GWAS"))) %>% 
+        mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                                        ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
 
 
+
+pal<-c(unname(yarrr::piratepal("pony")))[c(1)]
+pX<-ggplot(merged, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2.5)+
+  xlim(-0.5,0.5)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
+  geom_vline(xintercept=0, linetype=3, color = '#3B3B3B') +
+  #geom_text(aes(label=beta_CI),hjust=0.28, vjust=-1, size =2.9, color = '#636363')+
+  theme_minimal_hgrid(10, rel_small = 1) +
+  #panel_border() +
+  facet_grid(rows=vars(outcome), cols=vars(analysis), switch = "y") +
+  scale_y_discrete(position = "right")+
+  labs(color = "Exposure",y = "Outcome",
+       x = "\nbeta coefficient (1 SD change in MD phenotype per age SD change)\n")+
+  theme(legend.position = "bottom", legend.justification = "center", ,
+        plot.title.position  = "plot",
+        strip.text.x = element_text(face = "bold"),
+        strip.text.y = element_text(face = "bold"),
+        axis.text.y=element_blank(),
+        axis.text.x =element_text(size = 8),
+        strip.text.y.left = element_text(angle = 0),
+        panel.spacing = unit(1, "lines"))+
+  guides(shape="none", colour=guide_legend(reverse = T))
+
+
+
+
+```
