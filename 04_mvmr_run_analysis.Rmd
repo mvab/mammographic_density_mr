@@ -83,29 +83,29 @@ results_path_sub <-   paste0(results_path, current_trait_category, "/")
 
 run_sens = T
 
-run_analysis_1 = T
-run_analysis_2 = F
+run_analysis_1 = F
+run_analysis_2 = T
 run_analysis_3 = F
 run_analysis_4 = F
 
 for (j in 1:length(bcac_lookup$trait)){
 
   # first select breast cancer outcome
-  if (!is.na(bcac_lookup$mr.base.id[j])){
-    outcome_source = 'outcome_mrbase'
-    outcome_name = bcac_lookup$mr.base.id[j]
-    print(paste0( "Using breast cancer data: ", outcome_name))
-    breast_cancer_data <- outcome_name
-  } else {
-    outcome_source = 'outcome_textfile'
-    outcome_name = bcac_lookup$full_data[j]
-    print(paste0( "Using breast cancer data: ", outcome_name))
-    # read in the outcome file
-    breast_cancer_data  <- vroom(paste0(data_path_gwas, outcome_name)) 
-  }
-  outcome_trait_name = bcac_lookup$trait_file_name[j]
-  outcome_trait = bcac_lookup$trait[j]
-  
+ if (!is.na(bcac_lookup$mr.base.id[j])){
+   outcome_source = 'outcome_mrbase'
+   outcome_name = bcac_lookup$mr.base.id[j]
+   print(paste0( "Using breast cancer data: ", outcome_name))
+   breast_cancer_data <- outcome_name
+ } else {
+   outcome_source = 'outcome_textfile'
+   outcome_name = bcac_lookup$full_data[j]
+   print(paste0( "Using breast cancer data: ", outcome_name))
+   # read in the outcome file
+   breast_cancer_data  <- vroom(paste0(data_path_gwas, outcome_name)) 
+ }
+ outcome_trait_name = bcac_lookup$trait_file_name[j]
+ outcome_trait = bcac_lookup$trait[j]
+ 
   
   # iterate over each mediators, and do any/all of 4 possible analyses
   for (i in 1:length(mediators)){
