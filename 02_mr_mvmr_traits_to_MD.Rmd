@@ -362,15 +362,14 @@ for (trait_name in traits){
   }
 }
 
-#write_tsv(mvmr, paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI.tsv")) # adjusted gwas
-write_tsv(mvmr, paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI_unadjMD.tsv"))
-write_tsv(mvmr_sens_df, paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_unadjMD.tsv"))
+write_tsv(mvmr, paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI_",current_trait_category,".tsv"))
+write_tsv(mvmr_sens, paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_",current_trait_category,".tsv"))
 
 
 ```
 
 ```{r}
-dat<- read_tsv(paste0(results_path, "md_w_traits/","mvmr_results_w_cBMI_unadjMD.tsv")) %>% 
+dat<- read_tsv(paste0(results_path, "md_w_traits/","mvmr_results_w_cBMI_",current_trait_category,".tsv")) %>% 
       mutate(exposure = ifelse(exposure == "age_at_menarche_perry", "Age at menarche (Perry)", exposure)) %>% 
       mutate(exposure = ifelse(exposure == "age_at_menarche_ukb", "Age at menarche (UKB)", exposure)) %>%
   filter(exposure != "Childhood body size") %>% 
@@ -379,7 +378,7 @@ dat<- read_tsv(paste0(results_path, "md_w_traits/","mvmr_results_w_cBMI_unadjMD.
       mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
                                 ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
 
-pal<-rev(c(unname(yarrr::piratepal("pony"))))[c(2,1)]
+pal<-rev(c(unname(yarrr::piratepal("pony"))))[c(2,1,7)]
 p<-ggplot(dat, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
   geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
   geom_point(size=2.5)+
@@ -418,7 +417,7 @@ dat_total2<- read_tsv( paste0(results_path, current_trait_category,"/", current_
 
 
 # mvmr results
-dat_direct<- read_tsv(paste0(results_path, "md_w_traits/","mvmr_results_w_cBMI_unadjMD.tsv")) %>% 
+dat_direct<- read_tsv(paste0(results_path, "md_w_traits/","mvmr_results_w_cBMI_",current_trait_category,".tsv")) %>% 
       mutate(exposure = ifelse(exposure == "age_at_menarche_ukb", "Age at menarche", exposure)) %>%
       filter(pair == "age_at_menarche_ukb") %>% 
       mutate(effect = "Direct effect") 
@@ -582,7 +581,7 @@ dat_total2<- read_tsv( paste0(results_path, current_trait_category,"/", current_
 
 
 # mvmr results
-dat_direct<- read_tsv(paste0(results_path, "md_w_traits/","mvmr_results_w_cBMI_unadjMD.tsv")) %>% 
+dat_direct<- read_tsv(paste0(results_path, "md_w_traits/","mvmr_results_w_cBMI_",current_trait_category,".tsv")) %>% 
       filter(pair == "igf") %>% 
       mutate(effect = "Direct effect") 
 
