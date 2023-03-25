@@ -39,7 +39,7 @@ source("../functions.R")
 # unadjusted 
 
 # bmi -> md
-current_trait_category <- "md_unadj" 
+current_trait_category <- "md" 
 bmi_to_md <-      read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-",current_trait_category,".tsv")) %>% 
                   select(-starts_with("or")) %>% select(exposure, outcome, everything())
 bmi_to_md_sens <- read_tsv(paste0(results_path, current_trait_category, "/merged_sens_mr_BMI-to-",current_trait_category,".tsv"))
@@ -51,6 +51,7 @@ all.files_mr <- list.files(path = ind_res_dir, pattern = "merged_mr_mediators_*"
 
 l <- lapply(all.files_mr, read_tsv)
 md_to_bc <- l %>% reduce(rbind) %>% 
+  filter(!grepl("BRCA", outcome)) %>% 
  mutate(outcome = case_when(outcome =="Breast cancer" ~ "BCAC 2020",
                              outcome =="ER+ Breast cancer" ~ "ER+ Breast cancer",
                              outcome =="ER- Breast cancer" ~ "ER- Breast cancer",
@@ -69,7 +70,8 @@ ind_res_dir <- paste0(results_path, current_trait_category)
 all.files_mr <- list.files(path = ind_res_dir, pattern = "merged_sens_mr_mediators_*", full.names = T)
 
 l <- lapply(all.files_mr, read_tsv)
-md_to_bc_sens <- l %>% reduce(rbind) %>% 
+md_to_bc_sens <- l %>% reduce(bind_rows) %>% 
+ filter(!grepl("BRCA", outcome)) %>% 
  mutate(outcome = case_when(outcome =="Breast cancer" ~ "BCAC 2020",# bcac 2017 is manually added to file
                              outcome =="ER+ Breast cancer" ~ "ER+ Breast cancer",
                              outcome =="ER- Breast cancer" ~ "ER- Breast cancer",
@@ -100,15 +102,17 @@ aam_to_md_sens <-  read_tsv(paste0(results_path, current_trait_category, "/", cu
 
 ### MVMR
 
-# aaM +cbmi -> MD ###### NB NEEDS TO REGENRATED + UPDATE PATH for ADJUSTED 'md' data
-mvmr_aaM_cbmi_to_md <- read_tsv(paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI_unadjMD.tsv")) %>% 
+# aaM +cbmi -> MD 
+mvmr_aaM_cbmi_to_md <- read_tsv(paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI_",current_trait_category,".tsv")) %>% 
                         select(-starts_with("or")) %>% 
                         select(exposure, outcome,  nsnp, pval, se, everything()) %>% 
                         mutate(exposure = ifelse(exposure =="age_at_menarche_ukb",  "Age at menarche", exposure)) %>% 
-                        mutate(pair = ifelse(pair =="age_at_menarche_ukb",  "Age at menarche", pair)) 
+                        mutate(pair = ifelse(pair =="age_at_menarche_ukb",  "Age at menarche", pair)) %>% 
+                        filter(pair == "Age at menarche")
 
-mvmr_aaM_cbmi_to_md_sens <- read_tsv( paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_unadjMD.tsv")) %>% 
-                            rename("Age at menarche (Fst)" =  "age_at_menarche_ukb (Fst)")
+mvmr_aaM_cbmi_to_md_sens <- read_tsv( paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_",current_trait_category,".tsv")) %>% 
+                            rename("Age at menarche (Fst)" =  "age_at_menarche_ukb (Fst)") %>% select(-c("IGF (Fst)"))
+
                             
 
 # cbmi+abmi -> md
@@ -132,13 +136,39 @@ mvmr_cBMI_md_to_bc <- read_tsv(paste0(results_path, current_trait_category, "/mv
                              TRUE ~ outcome)) %>% 
   select(exposure, outcome, nsnp, or, or_lci95, or_uci95, pval,b,se ,mediator) %>% 
   arrange(mediator, outcome, exposure) %>% 
-  mutate(pval_0.05 = ifelse(pval < 0.051, 1, 0))
+  mutate(pval_0.05 = ifelse(pval < 0.051, 1, 0)) 
 
 outs <- rep(unique(mvmr_cBMI_md_to_bc$outcome),3)
 
 mvmr_cBMI_md_to_bc_sens <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_sens_mvmr_sens_earlyBMI-",current_trait_category,"-to-BCAC.tsv")) %>% 
                           select(-Qstat, -Qpval, everything(), Qstat, Qpval)
 mvmr_cBMI_md_to_bc_sens$outcome <- outs
+
+```
+
+
+```{r}
+# only for unadjusted data
+
+
+# total cBMI -> BC results
+
+total_data<- 
+  read_csv(paste0(results_path, "univariableMR_BMI_BCACall.tsv")) %>% 
+  filter(exposure == 'Childhood BMI') %>% 
+  select(-OR_CI) %>% 
+  mutate(exposure = "Childhood body size") %>% 
+  filter(!grepl("BRCA", outcome)) %>% 
+  mutate(outcome = case_when(outcome =="Breast cancer (overall BCAC 2020)" ~ "BCAC 2020",
+                             outcome =="Breast cancer" ~ "BCAC 2017",
+                             outcome =="ER+ Breast cancer" ~ "ER+ Breast cancer",
+                             outcome =="ER- Breast cancer" ~ "ER- Breast cancer",
+                             outcome =="Luminal A"    ~ "Luminal A",   
+                             outcome =="Luminal B"   ~ "Luminal B1",  
+                             outcome =="Luminal B-HER2 negative" ~ "Luminal B2" ,
+                             outcome =="HER2 enriched"  ~ "HER2-enriched" ,
+                             outcome =="TNBC Basal-like"  ~ "TNBC" ,
+                             TRUE ~ outcome))
 
 
 
@@ -176,33 +206,61 @@ phewas_pd <- read_tsv(paste0(results_path,"phewas/","PD_unadj" ,"_phewas_results
 
 
 ```{r}
-current_trait_category <- "md_unadj" 
-guide_table <- read_xlsx(paste0(results_path, "guide_table_",current_trait_category,".xlsx"))
 
-#### write to xls
-sheets <- list("Guide" = guide_table,
-               "S3" = bmi_to_md, 
-               "S4" = bmi_to_md_sens,
-               "S5"=mvmr_BMIs_to_md, 
-               "S6"=mvmr_BMIs_to_md_sens, 
-               "S7" = aam_to_md, # cmi total is in 1
-               "S8" = aam_to_md_sens,
-               "S9" = mvmr_aaM_cbmi_to_md,
-               "S10" = mvmr_aaM_cbmi_to_md_sens,
-               "S11" = md_to_bc,
-               "S12" = md_to_bc_sens,
-               "S13"= mvmr_cBMI_md_to_bc,
-               "S14" = mvmr_cBMI_md_to_bc_sens,
-               "S15" = tibble(), # TODO
-               "S16" = mrpresso,
-               "S17" = radial,
-               "S18" = cluster,
-               "S19" = phewas_da,
-               "S20" = phewas_nda,
-               "S21" = phewas_pd
-               
-               ) 
-write_xlsx(sheets, paste0(results_path, "all_results_",current_trait_category,".xlsx"))
+if (current_trait_category == "md_unadj" ) {
+  guide_table <- read_xlsx(paste0(results_path, "guide_table_",current_trait_category,".xlsx"))
+  
+  #### write to xls
+  sheets <- list("Guide" = guide_table,
+                 "S3" = bmi_to_md, 
+                 "S4" = bmi_to_md_sens,
+                 "S5"=mvmr_BMIs_to_md, 
+                 "S6"=mvmr_BMIs_to_md_sens, 
+                 "S7" = aam_to_md, # cmi total is in 1
+                 "S8" = aam_to_md_sens,
+                 "S9" = mvmr_aaM_cbmi_to_md,
+                 "S10" = mvmr_aaM_cbmi_to_md_sens,
+                 "S11" = md_to_bc,
+                 "S12" = md_to_bc_sens,
+                 "S13"= mvmr_cBMI_md_to_bc,
+                 "S14" = mvmr_cBMI_md_to_bc_sens,
+                 "S15" = total_data, 
+                 "S16" = mrpresso,
+                 "S17" = radial,
+                 "S18" = cluster,
+                 "S19" = phewas_da,
+                 "S20" = phewas_nda,
+                 "S21" = phewas_pd
+                 
+                 ) 
+  write_xlsx(sheets, paste0(results_path, "all_results_",current_trait_category,".xlsx"))
+}
+
+```
+
+
+```{r}
+if (current_trait_category == "md" ) {
+  guide_table <- read_xlsx(paste0(results_path, "guide_table_",current_trait_category,".xlsx"))
+  
+  #### write to xls
+  sheets <- list("Guide" = guide_table,
+                 "S28" = bmi_to_md, 
+                 "S29" = bmi_to_md_sens,
+                 "S30"=mvmr_BMIs_to_md, 
+                 "S31"=mvmr_BMIs_to_md_sens, 
+                 "S32" = aam_to_md, # cmi total is in 1
+                 "S33" = aam_to_md_sens,
+                 "S34" = mvmr_aaM_cbmi_to_md,
+                 "S35" = mvmr_aaM_cbmi_to_md_sens, # manually remove IGF rows
+                 "S36" = md_to_bc,
+                 "S37" = md_to_bc_sens,
+                 "S38"= mvmr_cBMI_md_to_bc,
+                 "S39" = mvmr_cBMI_md_to_bc_sens
+                 
+                 ) 
+  write_xlsx(sheets, paste0(results_path, "all_results_",current_trait_category,".xlsx"))
+}
 
 ```
 
