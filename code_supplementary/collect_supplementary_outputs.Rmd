@@ -39,7 +39,7 @@ source("../functions.R")
 # unadjusted 
 
 # bmi -> md
-current_trait_category <- "md" 
+current_trait_category <- "md_unadj" 
 bmi_to_md <-      read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-",current_trait_category,".tsv")) %>% 
                   select(-starts_with("or")) %>% select(exposure, outcome, everything())
 bmi_to_md_sens <- read_tsv(paste0(results_path, current_trait_category, "/merged_sens_mr_BMI-to-",current_trait_category,".tsv"))
@@ -107,12 +107,13 @@ mvmr_aaM_cbmi_to_md <- read_tsv(paste0(results_path,"md_w_traits/","mvmr_results
                         select(-starts_with("or")) %>% 
                         select(exposure, outcome,  nsnp, pval, se, everything()) %>% 
                         mutate(exposure = ifelse(exposure =="age_at_menarche_ukb",  "Age at menarche", exposure)) %>% 
-                        mutate(pair = ifelse(pair =="age_at_menarche_ukb",  "Age at menarche", pair)) %>% 
+                        mutate(pair = ifelse(pair =="age_at_menarche_ukb",  "Age at menarche", pair)) 
                         filter(pair == "Age at menarche")
+outs <- unique(mvmr_aaM_cbmi_to_md$outcome)
 
 mvmr_aaM_cbmi_to_md_sens <- read_tsv( paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_",current_trait_category,".tsv")) %>% 
-                            rename("Age at menarche (Fst)" =  "age_at_menarche_ukb (Fst)") %>% select(-c("IGF (Fst)"))
-
+                            rename("Age at menarche (Fst)" =  "age_at_menarche_ukb (Fst)") %>% select(-c("IGF (Fst)"))%>% drop_na()
+mvmr_aaM_cbmi_to_md_sens$outcome <- outs
                             
 
 # cbmi+abmi -> md
