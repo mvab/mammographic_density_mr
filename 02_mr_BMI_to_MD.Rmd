@@ -1,5 +1,7 @@
 ---
-title: "Univarite MR of BMI to mediators"
+title: "Univarite MR of BMI to MD"
+author: "Marina Vabistsevits"
+date: "`r Sys.Date()`"
 output: html_document
 ---
 
@@ -48,10 +50,9 @@ dim(adult_bmi_exp) # 173
 
 
 
-# Run MR for all in a loop 
+# Run MR for all 
 
 ```{r}
-
 # specify group to process if data is in textfiles
 current_trait_category <- "md_unadj"
 mediators <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(!is.na(full_data)) %>%  pull(full_data) 
@@ -177,84 +178,3 @@ df <- l %>% reduce(rbind)
 write_tsv(df, paste0(results_path, current_trait_category, "/merged_sens_mr_BMI-to-", current_trait_category,".tsv"))
 ```
 
-
-# Plot results for each category
-
-
-```{r}
-current_trait_category <- "md_unadj"
-dat<- read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-", current_trait_category,".tsv")) %>% 
-      filter(method == "Inverse variance weighted") 
-#dat %>% kable_it()
-
-pal<-c(unname(yarrr::piratepal("pony")))[c(8,2)]
-p<-ggplot(dat, aes(y=exposure, x=b, label=outcome, colour=exposure)) +
-  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
-  geom_point(size=2)+
-  xlim(-1.2,1.2)+
-  scale_color_manual(values=pal)+
-  scale_shape_manual(values = c(19)) +
-  geom_vline(xintercept=0, linetype=3,) +
-  theme_minimal_hgrid(9, rel_small = 1) +
-  facet_wrap(~outcome, ncol=1,switch = 'x')+
-  labs(color = "",y = "", x = "(total) effect size")+
-  theme(legend.position = "none", plot.title.position  = "plot")
-
-#ggsave(paste0("figures/BMI-to-",current_trait_category ,"_IVW.png"),
-#       plot=p, scale=2, 
-#       width=10, height=5,
-#       units=c("cm"), dpi=200, limitsize=F)
-```
-
-
-# this is a copy from 05_mvmr_create_plots for MVMR of the same plor
-```{r message=F}
-current_trait_category <- "md_unadj"
-dat <- read_tsv(paste0(results_path, current_trait_category, 
-                       "/mvmr/merged/merged_mvmr_BMIs-", current_trait_category,"-to-BCAC.tsv"))
-
-
-pal<-c(unname(yarrr::piratepal("pony")))[c(8,2)]
-p2<-ggplot(dat, aes(y=exposure, x=b, label=outcome, colour=exposure)) +
-  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
-  geom_point(size=2)+
-  xlim(-1.2,1.2)+
-  scale_color_manual(values=pal)+
-  scale_shape_manual(values = c(19)) +
-  geom_vline(xintercept=0, linetype=3,) +
-  theme_minimal_hgrid(9, rel_small = 1) +
-  facet_wrap(~outcome, ncol=1, switch = "x")+
-  labs(color = "",y = "", x = "direct (effect size)" )+
-  theme(legend.position = "none", plot.title.position  = "plot")
-
-
-
-```
-
-
-```{r}
-# collect plots for supl figure here
-library(cowplot)
-
-unadj_unimr <-p
-adj_unimr <-p
-
-adj_mvmr <-p2
-unadj_mvmr <- p2
-
-
-pl<-plot_grid(unadj_unimr, NULL, unadj_mvmr,
-              NULL,        NULL, NULL,
-              adj_unimr,   NULL, adj_mvmr, 
-              rel_widths = c(1, 0.1, 1,
-                             1, 0.1, 1),
-              rel_heights = c(1, 0.1, 1), 
-               labels = c("a", "", "b",
-                            "", "","",
-                            "c", "", "d" ), label_size = 12,
-                #labels= c("Unadjusted MD GWASs, MR", "Unadjusted MD GWASs, MVMR",
-                #          "Adjusted for BMI MD GWASs, MR", "Adjusted for BMI MD GWASs, MVMR"),
-                align='vh', vjust=1, nrow = 3, ncol=3)
-
-
-```
