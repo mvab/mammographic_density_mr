@@ -1,0 +1,435 @@
+---
+title: "Generate figures"
+author: "Marina Vabistsevits"
+date: "`r Sys.Date()`"
+output: html_document
+
+---
+```{r setup, include=FALSE}
+library(cowplot)
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(tidyr)
+library(TwoSampleMR)
+library(wesanderson)
+library(cowplot)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=F}
+# set path for pre-calculated data, outside the code repo
+# `local` / `remote` (reading data from RDSF)
+currently_working_env = "local"
+source("set_paths.R")
+set_paths(currently_working_env)
+
+# metafile
+data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
+source("functions.R")
+
+```
+
+
+
+# Figure S1
+
+Collecting data and plotting 4 separate plots:
+
+1. uniMR: BMIs -> MD (unadjusted)
+2. uniMR: BMIs -> MD (adjusted)
+
+3.  mvMR: BMIs -> MD (unadjusted)
+4.  mvMR: BMIs -> MD (adjusted)
+
+
+## prep: md_unadj
+
+```{r}
+current_trait_category <- "md_unadj"
+pal<-c(unname(yarrr::piratepal("pony")))[c(8,2)]
+
+# uniMR - generated in 02
+dat<- read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-", current_trait_category,".tsv")) %>% 
+      filter(method == "Inverse variance weighted") 
+
+unadj_unimr<-
+  ggplot(dat, aes(y=exposure, x=b, label=outcome, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2)+
+  xlim(-1.2,1.2)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values = c(19)) +
+  geom_vline(xintercept=0, linetype=3,) +
+  theme_minimal_hgrid(9, rel_small = 1) +
+  facet_wrap(~outcome, ncol=1,switch = 'x')+
+  labs(color = "",y = "", x = "(total) effect size")+
+  theme(legend.position = "none", plot.title.position  = "plot")
+
+# mvmr
+dat <- read_tsv(paste0(results_path, current_trait_category, 
+                       "/mvmr/merged/merged_mvmr_BMIs-", current_trait_category,"-to-BCAC.tsv"))
+
+unadj_mvmr<-
+  ggplot(dat, aes(y=exposure, x=b, label=outcome, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2)+
+  xlim(-1.2,1.2)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values = c(19)) +
+  geom_vline(xintercept=0, linetype=3,) +
+  theme_minimal_hgrid(9, rel_small = 1) +
+  facet_wrap(~outcome, ncol=1, switch = "x")+
+  labs(color = "",y = "", x = "direct (effect size)" )+
+  theme(legend.position = "none", plot.title.position  = "plot")
+
+```
+
+## prep: md (adjusted)
+
+```{r}
+current_trait_category <- "md"
+pal<-c(unname(yarrr::piratepal("pony")))[c(8,2)]
+
+# uniMR - generated in 02
+dat<- read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-", current_trait_category,".tsv")) %>% 
+      filter(method == "Inverse variance weighted") 
+
+adj_unimr<-
+  ggplot(dat, aes(y=exposure, x=b, label=outcome, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2)+
+  xlim(-1.2,1.2)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values = c(19)) +
+  geom_vline(xintercept=0, linetype=3,) +
+  theme_minimal_hgrid(9, rel_small = 1) +
+  facet_wrap(~outcome, ncol=1,switch = 'x')+
+  labs(color = "",y = "", x = "(total) effect size")+
+  theme(legend.position = "none", plot.title.position  = "plot")
+
+#mvmr
+dat <- read_tsv(paste0(results_path, current_trait_category, 
+                       "/mvmr/merged/merged_mvmr_BMIs-", current_trait_category,"-to-BCAC.tsv"))
+adj_mvmr<-
+  ggplot(dat, aes(y=exposure, x=b, label=outcome, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2)+
+  xlim(-1.2,1.2)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values = c(19)) +
+  geom_vline(xintercept=0, linetype=3,) +
+  theme_minimal_hgrid(9, rel_small = 1) +
+  facet_wrap(~outcome, ncol=1, switch = "x")+
+  labs(color = "",y = "", x = "direct (effect size)" )+
+  theme(legend.position = "none", plot.title.position  = "plot")
+```
+
+## complete figure
+
+```{r}
+# collect plots for supl figure here
+
+#Figure S1
+pl<-cowplot::plot_grid(
+              unadj_unimr, NULL, unadj_mvmr,
+              NULL,        NULL, NULL,
+              adj_unimr,   NULL, adj_mvmr, 
+            
+              rel_widths = c(1, 0.1, 1,
+                             1, 0.1, 1),
+              rel_heights = c(1, 0.1, 1), 
+               labels = c("a", "", "b",
+                            "", "","",
+                            "c", "", "d" ), label_size = 12,
+                #labels= c("Unadjusted MD GWASs, MR", "Unadjusted MD GWASs, MVMR",
+                #          "Adjusted for BMI MD GWASs, MR", "Adjusted for BMI MD GWASs, MVMR"),
+                align='vh', vjust=1, nrow = 3, ncol=3)
+
+
+```
+
+
+
+
+# Figure 2
+
+##  prep: total and direcrt effect of childhood body size and age at menarche
+
+```{r}
+current_trait_category <- "md_unadj"
+# cBMI -> MD total effect
+dat_total1<- read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-", current_trait_category,".tsv")) %>% 
+      filter(method == "Inverse variance weighted") %>% 
+      filter(exposure == "Childhood body size") %>% 
+      mutate(effect = "Total effect")
+
+# ageatM -> MD total effect
+dat_total2<- read_tsv( paste0(results_path, current_trait_category,"/", current_trait_category,"_w_traits_biMR_results.tsv")) %>% 
+      filter(method == "Inverse variance weighted") %>% 
+      filter(dir == 1) %>% 
+      filter(exposure == "Age when periods started (menarche)") %>% # ukb
+      mutate(exposure = ifelse(exposure == "Age when periods started (menarche)", "Age at menarche", exposure)) %>%
+      mutate(effect = "Total effect")
+
+
+# mvmr results
+dat_direct<- read_tsv(paste0(results_path, "md_w_traits/","mvmr_results_w_cBMI_",current_trait_category,".tsv")) %>% 
+      mutate(exposure = ifelse(exposure == "age_at_menarche_ukb", "Age at menarche", exposure)) %>%
+      filter(pair == "age_at_menarche_ukb") %>% 
+      mutate(effect = "Direct effect") 
+
+
+dat_merged <- bind_rows(dat_total1, dat_total2, dat_direct) %>%
+              select(effect,  everything(), -method) %>% 
+              mutate(effect=factor(effect, levels = c("Total effect", "Direct effect"))) %>% 
+              mutate(exposure=factor(exposure, levels = c("Childhood body size",  "Age at menarche")),
+                     exposure = factor(exposure, levels = rev(levels(exposure)))) %>% 
+              arrange(exposure) %>% 
+              mutate(beta_CI = paste0(round(b,2), " [",round(lo_ci,2) ,":",round(up_ci,2), "]")) %>% 
+              mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                                        ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
+
+
+pal<-c(unname(yarrr::piratepal("pony")))[c(1,2)]
+p<-ggplot(dat_merged, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2.5)+
+  #xlim(-1.2,0.5)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
+  geom_vline(xintercept=0, linetype=3) +
+  geom_text(aes(label=beta_CI),hjust=0.5, vjust=-1, size =2.9, color = '#3B3B3B')+
+  theme_minimal_hgrid(10, rel_small = 1) +
+  panel_border() +
+  facet_grid(rows=vars(outcome), cols=vars(effect)) +
+  scale_y_discrete(position = "right")+
+  labs(color = "Exposure",y = "Outcome", x = "effect size"
+       #title= paste0("Univariate MR, 95% CI; direction 1: trait -> MD") )+
+       #title= paste0("MVMR direct effect, accounted for Childhood body size, 95% CI"
+                      )+
+  theme(legend.position = "bottom", legend.justification = "center",
+        plot.title.position  = "plot",
+        strip.text.x = element_text(face = "bold"),
+        strip.text.y = element_text(face = "bold"),
+        axis.text.y=element_blank())+
+  guides(shape="none", colour=guide_legend(reverse = T))
+
+
+```
+
+
+
+## prep:  total and direcrt effect of childhood body size and adult body size
+
+```{r}
+current_trait_category <- "md_unadj"
+# cBMI or aBMI-> MD total effect
+dat_total<- read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-", current_trait_category,".tsv")) %>% 
+      filter(method == "Inverse variance weighted") %>% 
+      #filter(exposure == "Childhood body size") %>% 
+      mutate(effect = "Total effect")
+
+
+# mvmr results
+dat_direct<- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_BMIs-", current_trait_category,"-to-BCAC.tsv")) %>% 
+  mutate(effect = "Direct effect") 
+
+
+dat_merged_BMIS <- bind_rows(dat_total, dat_direct) %>%
+              select(effect,  everything(), -method) %>% 
+              mutate(effect=factor(effect, levels = c("Total effect", "Direct effect"))) %>% 
+              mutate(exposure=factor(exposure, levels = c("Childhood body size",  "Adult body size")),
+                     exposure = factor(exposure, levels = rev(levels(exposure)))) %>% 
+              arrange(exposure) %>% 
+              mutate(beta_CI = paste0(round(b,2), " [",round(lo_ci,2) ,":",round(up_ci,2), "]")) %>% 
+              mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                                        ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
+
+
+pal<-c(unname(yarrr::piratepal("pony")))[c(1,2)]
+p<-ggplot(dat_merged_BMIS, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2.5)+
+  #xlim(-1.2,0.5)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
+  geom_vline(xintercept=0, linetype=3) +
+  geom_text(aes(label=beta_CI),hjust=0.5, vjust=-1, size =2.9, color = '#3B3B3B')+
+  theme_minimal_hgrid(10, rel_small = 1) +
+  panel_border() +
+  facet_grid(rows=vars(outcome), cols=vars(effect), switch = "y") +
+  scale_y_discrete(position = "left")+
+  labs(color = "Exposure",y = "Outcome", x = "effect size"
+       #title= paste0("Univariate MR, 95% CI; direction 1: trait -> MD") )+
+       #title= paste0("MVMR direct effect, accounted for Childhood body size, 95% CI"
+                      )+
+  theme(legend.position = "bottom", legend.justification = "center",
+        plot.title.position  = "plot",
+        strip.text.x = element_text(face = "bold"),
+        strip.text.y = element_text(face = "bold"),
+        axis.text.y=element_blank())+
+  guides(shape="none", colour=guide_legend(reverse = T))
+
+
+```
+
+
+## complete figure - combined plot of cBMI, aBMI, aaM - total and direct effects
+
+```{r}
+
+dat_all <- bind_rows(dat_merged %>% mutate(cov = "Direct effect (MVMR) "),
+                     dat_merged_BMIS %>% mutate(cov = "Direct effect (MVMR)")) %>% 
+  select(-id.exposure, -id.outcome, -dir, -pair, -outcome.full ) %>% 
+  mutate(cov = ifelse(effect == "Total effect", "Total effect (MR)", cov)) %>% 
+    distinct() %>% 
+  mutate(cov = factor(cov, levels = c("Total effect (MR)",
+                                      "Direct effect (MVMR)", 
+                                      "Direct effect (MVMR) "))) %>% 
+  mutate(exposure = factor(exposure, levels = rev(c("Childhood body size", 
+                                                "Adult body size",
+                                                "Age at menarche"))))
+
+pal<-c(unname(yarrr::piratepal("pony")))[c(1,8,2)]
+pX<-ggplot(dat_all, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2.5)+
+  xlim(-1.2,1.2)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
+  geom_vline(xintercept=0, linetype=3, color = '#3B3B3B') +
+  #geom_text(aes(label=beta_CI),hjust=0.28, vjust=-1, size =2.9, color = '#636363')+
+  theme_minimal_hgrid(10, rel_small = 1) +
+  #panel_border() +
+  facet_grid(rows=vars(outcome), cols=vars(cov))+#, switch = "y") +
+  scale_y_discrete(position = "right")+
+  labs(color = "Exposure",y = "Outcome",
+       x = "\nbeta coefficient (1 SD change in MD phenotype per body size category or age SD change)\n")+
+  theme(legend.position = "left", legend.justification = "center", ,
+        plot.title.position  = "plot",
+        strip.text.x = element_text(face = "bold"),
+        strip.text.y = element_text(face = "bold"),
+        axis.text.y=element_blank(),
+        axis.text.x =element_text(size = 8),
+        panel.spacing = unit(1, "lines"))+
+  guides(shape="none", colour=guide_legend(reverse = T))
+```
+
+
+
+
+## extra: combined plot of total and direcrt effect of childhood body size and IGF
+
+```{r}
+current_trait_category <- "md_unadj"
+# cBMI -> MD total effect
+dat_total1<- read_tsv(paste0(results_path, current_trait_category, "/merged_mr_BMI-to-", current_trait_category,".tsv")) %>% 
+      filter(method == "Inverse variance weighted") %>% 
+      filter(exposure == "Childhood body size") %>% 
+      mutate(effect = "Total effect")
+
+# IGF -> MD total effect
+dat_total2<- read_tsv( paste0(results_path, current_trait_category,"/", current_trait_category,"_w_traits_biMR_results.tsv")) %>% 
+      filter(method == "Inverse variance weighted") %>% 
+      filter(dir == 1) %>% 
+      filter(exposure == "IGF") %>% # ukb
+      mutate(effect = "Total effect")
+
+
+# mvmr results
+dat_direct<- read_tsv(paste0(results_path, "md_w_traits/","mvmr_results_w_cBMI_",current_trait_category,".tsv")) %>% 
+      filter(pair == "igf") %>% 
+      mutate(effect = "Direct effect") 
+
+
+dat_merged <- bind_rows(dat_total1, dat_total2, dat_direct) %>%
+              select(effect,  everything(), -method) %>% 
+              mutate(effect=factor(effect, levels = c("Total effect", "Direct effect"))) %>% 
+              mutate(exposure=factor(exposure, levels = c("Childhood body size",  "IGF")),
+                     exposure = factor(exposure, levels = rev(levels(exposure)))) %>% 
+              arrange(exposure) %>% 
+              mutate(beta_CI = paste0(round(b,2), " [",round(lo_ci,2) ,":",round(up_ci,2), "]")) %>% 
+              mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                                        ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
+
+
+pal<-c(unname(yarrr::piratepal("pony")))[c(9,2)]
+p<-ggplot(dat_merged, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2.5)+
+  #xlim(-1.2,0.5)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
+  geom_vline(xintercept=0, linetype=3) +
+  geom_text(aes(label=beta_CI),hjust=0.5, vjust=-1, size =2.9, color = '#3B3B3B')+
+  theme_minimal_hgrid(10, rel_small = 1) +
+  panel_border() +
+  facet_grid(rows=vars(outcome), cols=vars(effect)) +
+  scale_y_discrete(position = "right")+
+  labs(color = "Exposure",y = "Outcome", x = "effect size"
+       #title= paste0("Univariate MR, 95% CI; direction 1: trait -> MD") )+
+       #title= paste0("MVMR direct effect, accounted for Childhood body size, 95% CI"
+                      )+
+  theme(legend.position = "bottom", legend.justification = "center",
+        plot.title.position  = "plot",
+        strip.text.x = element_text(face = "bold"),
+        strip.text.y = element_text(face = "bold"),
+        axis.text.y=element_blank())+
+  guides(shape="none", colour=guide_legend(reverse = T))
+
+
+```
+
+# Figure S2 
+
+## complete figure - plot for aaM to MD, comparing md and md_unadj
+```{r}
+current_trait_category <- "md"
+adj_md<- read_tsv(paste0(results_path, current_trait_category,"/", current_trait_category,"_w_traits_biMR_results.tsv")) %>% 
+  filter(exposure == "Age when periods started (menarche)") %>% 
+  filter(method == "Inverse variance weighted") %>% 
+  mutate(analysis = "Adjusted for BMI MD GWAS")
+
+current_trait_category <- "md_unadj"
+unadj_md<- read_tsv(paste0(results_path, current_trait_category,"/", current_trait_category,"_w_traits_biMR_results.tsv"))%>% 
+  filter(exposure == "Age when periods started (menarche)") %>% 
+  filter(method == "Inverse variance weighted") %>% 
+  mutate(analysis = "Unadjusted MD GWAS")
+
+merged <-bind_rows(adj_md,unadj_md ) %>%
+        mutate(exposure = "Age at menarche") %>% 
+        mutate(analysis = factor(analysis, levels = c("Unadjusted MD GWAS", "Adjusted for BMI MD GWAS"))) %>% 
+        mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                                        ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
+
+
+pal<-c(unname(yarrr::piratepal("pony")))[c(1)]
+pX<-ggplot(merged, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
+  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
+  geom_point(size=2.5)+
+  xlim(-0.5,0.5)+
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
+  geom_vline(xintercept=0, linetype=3, color = '#3B3B3B') +
+  #geom_text(aes(label=beta_CI),hjust=0.28, vjust=-1, size =2.9, color = '#636363')+
+  theme_minimal_hgrid(10, rel_small = 1) +
+  #panel_border() +
+  facet_grid(rows=vars(outcome), cols=vars(analysis), switch = "y") +
+  scale_y_discrete(position = "right")+
+  labs(color = "Exposure",y = "Outcome",
+       x = "\nbeta coefficient (1 SD change in MD phenotype per age SD change)\n")+
+  theme(legend.position = "bottom", legend.justification = "center", ,
+        plot.title.position  = "plot",
+        strip.text.x = element_text(face = "bold"),
+        strip.text.y = element_text(face = "bold"),
+        axis.text.y=element_blank(),
+        axis.text.x =element_text(size = 8),
+        strip.text.y.left = element_text(angle = 0),
+        panel.spacing = unit(1, "lines"))+
+  guides(shape="none", colour=guide_legend(reverse = T))
+
+```
+
+
