@@ -14,9 +14,10 @@ Main analysis scripts and metadata (see details below):
 
 ```
 ├── set_paths.R
-├── 00_MD_data_processing.Rmd
+├── 00v1_MD_data_processing.Rmd
+├── 00v2_MD_data_processing.Rmd
 ├── 01_process_gwas_summary.Rmd
-├── 02_mr_BMI_to_mediators.Rmd
+├── 02_mr_BMI_to_MD.Rmd
 ├── 03_mr_mediators_to_BC.Rmd
 ├── 04_mvmr_run_analysis.Rmd
 ├── 05_mvmr_create_plots.Rmd * not added yet
@@ -35,12 +36,18 @@ Main analysis scripts and metadata (see details below):
 
 1.  Script `set_paths.R` is imported by all other scripts, and is used to set the environment of where the project is run.
 
-2. **TODO** add about `00_MD_data_processing.Rmd
+2. MD data processing 
+
+`00v1_MD_data_processing.Rmd` - original MD GWAS files processing (adjusted for BMI)
+
+`00v1_MD_data_processing.Rmd` - re-run MD GWAS files processing (unadjusted)
 
 
-2. Rmd `01_process_gwas_summary.Rmd` is required for processing data that comes as text files (i.e. GWAS summary stats) from the IEU GWAS pipeline or other sources. This script has to be run to convert raw data into `outcome` data frames and to extract instruments from each GWAS (in `exposure` format) and save them to be used directly in MR analysis in subsequent scripts. The names of raw files, tidy outcome data frames, and exposure instruments are all get saved in the metadata file `data_lookup.csv` upon generation. (NB the metadata file has to contain raw file names and the desired output prefixes before running this Rmd).
+2. Processing all datasets into 'tidy' format
 
-3. Rmd `02_mr_BMI_to_mediators.Rmd` runs univariable MR of Childhood and Adult BMI on all mediators specified in metadata file (`data_lookup.csv`). The code has to be run interactively per trait category. The results merged by trait category will be stored in `Results` directory outside the codebase. After the analysis, forest plots can be created for each trait category. To recreate the plots, don't need to rerun the full analysis, can just read in the merged files. The plots will be saved in the codebase in `figures/`. 
+`01_process_gwas_summary.Rmd` is required for processing data that comes as text files (i.e. GWAS summary stats) from the IEU GWAS pipeline or other sources. This script has to be run to convert raw data into `outcome` data frames and to extract instruments from each GWAS (in `exposure` format) and save them to be used directly in MR analysis in subsequent scripts. The names of raw files, tidy outcome data frames, and exposure instruments are all get saved in the metadata file `data_lookup.csv` upon generation. (NB the metadata file has to contain raw file names and the desired output prefixes before running this Rmd).
+
+3. Rmd `02_mr_BMI_to_MD.Rmd` runs univariable MR of Childhood and Adult body size on MD (a version of MD data to use is specified via metadata file `data_lookup.csv`). The code has to be run interactively per trait category. The results merged by trait category will be stored in `Results` directory outside the codebase. 
 
 
 4. Rmd `03_mr_mediators-to-BC.Rmd` is used to run univariable MR of all mediators (and BMI) on Breast cancer (`ieu-a-1126`). The code has to be run interactively per trait category, the results are stored in `Results` outside the codebase. After the analysis, forest plots can be created for each trait category. To recreate the plots, don't need to rerun the full analysis, can just read in the merged files. The plots will be saved in the codebase in `figures/`. 
@@ -54,6 +61,10 @@ Main analysis scripts and metadata (see details below):
 	*	 (Analysis 4) multivariable MR: childhood BMI + adult BMI + mediator -> Breast Cancer 
 
 
+
+05_create_plot.Rmd
+
+- S1 figure
 
 
 	The code has to be run interactively per trait category, the results are stored in `Results/trair_category/` outside the codebase. The analysis is structured as a large for-loop that will perform all four MVMR for each mediator in the selected trait category when individually specified T/F outside the loop. After all analyses have been performed, the mediators within each trait category are collated into a single dataframe and saved in `Results/trait_category/merged/` directory.
