@@ -60,7 +60,7 @@ read_and_format <-function(file_gwas, data_version="ieu_gwas_pipeline"){
                               pval_col = "P_BOLT_LMM")
     
   } else if (data_version == "shared_subset"){
-    # data shared as text files; pre-processed in script 00_..
+    # data shared as text files; pre-processed in script 00v1/2_..
     out <-vroom(file_gwas) %>% 
                format_data(., type="outcome",
                               snp_col = "SNP",
@@ -71,8 +71,9 @@ read_and_format <-function(file_gwas, data_version="ieu_gwas_pipeline"){
                               eaf_col = "effect_allele_freq",
                               pval_col = "pval")
   }else if (data_version == "bcac_md"){
+    # processing of BCAC MD data from Chen paper
     
-    # https://ctg.cncr.nl/documents/p1651/readme.txt
+    # Z-score conversion to beta/se method from here:  https://ctg.cncr.nl/documents/p1651/readme.txt
     out <-vroom(file_gwas, col_select = c(	'rsid',	'Allele1',	'Allele2'	,'freq' ,	'Zscore',"Weight",	'P-value') ) 
     # calc beta and se
     #Beta = Zscore / sqrt( 2 * MAF * ( 1 - MAF) * ( N + Zscore^2 ) )
