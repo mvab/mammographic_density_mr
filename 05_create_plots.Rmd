@@ -433,3 +433,96 @@ pX<-ggplot(merged, aes(y=exposure, x=b, label=outcome, shape=effect_direction, c
 ```
 
 
+# Figure 6
+
+```{r}
+current_trait_category = "md_unadj"
+# read cBMI direct effct after accounting for all MDs
+direct_data <- 
+  read_tsv( paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-md_unadj-to-BCAC.tsv")) %>% 
+  mutate(mediator = case_when(mediator=="dense_area_unadj" ~ "Dense area",
+                              mediator=="nondense_area_unadj" ~ "Non-dense area",
+                              mediator=="percent_density_unadj" ~ "Percent density")) %>% 
+  filter(exposure == "Childhood body size") %>% 
+  filter(outcome != "BRCA1_TN") %>% 
+  mutate(exposure = paste0(exposure, "\n accounted for\n ", mediator)) %>% 
+  select(exposure, outcome,  b, se, pval, starts_with("or", ignore.case = F)) %>% 
+  mutate(outcome = case_when(outcome =="Breast cancer" ~ "BCAC 2017",
+                             outcome =="Breast cancer (new)" ~ "BCAC 2020",
+                             outcome =="ER+ breast cancer" ~ "ER+",
+                             outcome =="ER- breast cancer" ~ "ER-",
+                                           outcome =="Luminal A"    ~ "Luminal A",   
+                                           outcome =="Luminal B, HER2+"   ~ "Luminal B1",  
+                                           outcome =="Luminal B, HER2-" ~ "Luminal B2" ,
+                                           outcome =="HER2-enriched"  ~ "HER2-enriched" ,
+                                           outcome =="TN Basal"  ~ "TNBC" ))
+
+
+# read total effects of  cBMI on all BC outcomes
+total_data<- 
+  read_csv(paste0(results_path, "univariableMR_BMI_BCACall.tsv")) %>% 
+  filter(exposure == 'Childhood BMI') %>% 
+  select(exposure, outcome, pval, b, se, starts_with("or", ignore.case = F)) %>% 
+  mutate(exposure = "Childhood body size") %>% 
+  filter(outcome != "TNBC_CIMBA_BRCA1") %>% 
+  mutate(outcome = case_when(outcome =="Breast cancer" ~ "BCAC 2017",
+                             outcome =="Breast cancer (overall BCAC 2020)" ~ "BCAC 2020",
+                             outcome =="ER+ Breast cancer" ~ "ER+",
+                             outcome =="ER- Breast cancer" ~ "ER-",
+                                           outcome =="Luminal A"    ~ "Luminal A",   
+                                           outcome =="Luminal B"   ~ "Luminal B1",  
+                                           outcome =="Luminal B-HER2 negative" ~ "Luminal B2" ,
+                                           outcome =="HER2 enriched"  ~ "HER2-enriched" ,
+                                           outcome =="TNBC Basal-like"  ~ "TNBC" ))
+  
+              
+all_data <- bind_rows(total_data, direct_data) %>% 
+   mutate(outcome = factor(outcome, levels = c("BCAC 2017","BCAC 2020",
+                                     "ER+", "ER-",
+                                     "Luminal A", "Luminal B1", "Luminal B2", 
+                                      "HER2-enriched", "TNBC" )),
+         outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
+  mutate(effect = ifelse(exposure == "Childhood body size", "total", "direct")) %>% 
+  mutate(exposure = ifelse(exposure == "Childhood body size", "Childhood body size \n(total effect)", exposure)) %>% 
+  mutate(exposure = factor(exposure, levels= rev(c(
+    "Childhood body size \n(total effect)",   "Childhood body size\n accounted for\n Dense area",   
+    "Childhood body size\n accounted for\n Non-dense area",  "Childhood body size\n accounted for\n Percent density")))) %>% 
+  mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
+                              ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) 
+
+
+
+pal<-(c(unname(yarrr::piratepal("pony"))))
+pal[6:7]<-c('darkgrey', "#FFEA5E")
+p<-ggplot(all_data,
+           aes(y=exposure, x=or,  colour=outcome, shape = effect_direction)) +
+  geom_point(size=2.2, 
+             position = ggstance::position_dodgev(height = 0.7))+
+  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.1, 
+            position = ggstance::position_dodgev(height = 0.7)) +
+  scale_x_log10()+
+
+  theme_minimal_vgrid(9)+
+  geom_vline(xintercept=1, linetype='longdash') +
+  scale_color_manual(values=pal)+
+  scale_shape_manual(values=c(16,1))+
+  theme(strip.text = element_text(face = 'bold'),
+        strip.text.y = element_text(face = 'bold'),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(),
+        )+
+  panel_border()+
+  labs(color = "Outcome",y = "Exposure\n", x = "Odds ratio", shape="")+
+  theme(legend.position = "right", legend.direction = "vertical", 
+        plot.title.position = "plot")+
+  guides(colour = guide_legend(reverse = TRUE), shape="none")
+
+
+
+ggsave(paste0("figures_manuscript/figure6_poster.png"),
+       plot=p, scale=1, 
+       width=10, height=12,
+       units=c("cm"), dpi=300, limitsize=F)
+
+
+```
