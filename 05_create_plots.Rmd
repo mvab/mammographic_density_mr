@@ -293,7 +293,12 @@ dat_all <- bind_rows(dat_merged %>% mutate(cov = "Direct effect (MVMR) "),
                                                 "Age at menarche"))))
 
 pal<-c(unname(yarrr::piratepal("pony")))[c(1,8,2)]
-pX<-ggplot(dat_all, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
+## adhoc change outcome label
+dat_all <- dat_all %>% mutate(outcome_short = case_when(outcome == "Dense area" ~ "DA",
+                                                        outcome == "Non-dense area" ~ "NDA",
+                                                        outcome == "Percent density" ~ "PD"))
+
+pX<-ggplot(dat_all, aes(y=exposure, x=b, label=outcome_short, shape=effect_direction, colour=exposure)) +
   geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
   geom_point(size=2.5)+
   xlim(-1.2,1.2)+
@@ -303,7 +308,7 @@ pX<-ggplot(dat_all, aes(y=exposure, x=b, label=outcome, shape=effect_direction, 
   #geom_text(aes(label=beta_CI),hjust=0.28, vjust=-1, size =2.9, color = '#636363')+
   theme_minimal_hgrid(10, rel_small = 1) +
   #panel_border() +
-  facet_grid(rows=vars(outcome), cols=vars(cov))+#, switch = "y") +
+  facet_grid(rows=vars(outcome_short), cols=vars(cov))+#, switch = "y") +
   scale_y_discrete(position = "right")+
   labs(color = "Exposure",y = "Outcome",
        x = "\nbeta coefficient (1 SD change in MD phenotype per body size category or age SD change)\n")+
@@ -315,6 +320,11 @@ pX<-ggplot(dat_all, aes(y=exposure, x=b, label=outcome, shape=effect_direction, 
         axis.text.x =element_text(size = 8),
         panel.spacing = unit(1, "lines"))+
   guides(shape="none", colour=guide_legend(reverse = T))
+
+ggsave(paste0("figures_manuscript/figure2_poster.png"),
+       plot=pX, scale=2, 
+       width=10, height=4,
+       units=c("cm"), dpi=300, limitsize=F)
 ```
 
 
@@ -526,3 +536,4 @@ ggsave(paste0("figures_manuscript/figure6_poster.png"),
 
 
 ```
+
