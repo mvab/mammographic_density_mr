@@ -374,6 +374,7 @@ cbpalette <- c(cluster_Null = "#CC79A7", cluster_Junk = "#000000", `cluster_1` =
     `cluster_2` = "#0072B2", `cluster_3` = "#D55E00", `cluster_4` = "#F0E442", 
     `cluster_5` = "#009E73",  `cluster_6` = "#56B4E9", `cluster_7` = "#E69F00")
 
+clust_snp_df_top_cluster<-read_tsv(paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
 
 forest_by_clusters <- mr_forest_plot_clusters(res_single,  outliers_df=clust_snp_df_top_cluster, outliers_colour_list=cbpalette)
 
@@ -522,15 +523,21 @@ phewas_plot <- ggplot(data = snp_phewas_df3_sub,
   coord_flip()+
   theme(axis.text.x = element_text(angle = 0, hjust = 1),
         legend.position = "right")+
-  labs(subtitle="PheWAS results for Non-dense area SNPs", colour= "Cluster", shape  = "Association with",
-       y = "-log10 p-value of association with other traits", x = "Non-dense SNPs, by cluster", colour= "cluster")+
+  labs(subtitle="PheWAS results for Dense area SNPs", colour= "Cluster", shape  = "Association with",
+       y = "-log10 p-value of association with other traits", x = "Dense area SNPs, by cluster", colour= "cluster")+
   guides(size="none")
 
 ggsave(plot=phewas_plot, 
-      #height=4, width=9, scale=1, dpi=300, # DA
-      height=3, width=9, scale=1, dpi=300, # NDA
+      height=3.9, width=9, scale=1, dpi=300, # DA
+      #height=3, width=9, scale=1, dpi=300, # NDA
+      #height=3.3, width=9, scale=1, dpi=300, # PD
        filename=paste0(results_path,"phewas/",exp_code ,"_phewas_plot.png"))
 
+ggsave(plot=phewas_plot, 
+      height=3.9, width=9, scale=1, dpi=300, # DA
+      #height=3, width=9, scale=1, dpi=300, # NDA
+      #height=3.3, width=9, scale=1, dpi=300, # PD
+       filename=paste0("figures_manuscript/figure5_poster.png"))
 
 
 
@@ -584,6 +591,22 @@ bottom_row <-plot_grid(clust_plot_best, phewas_plot,
 
 
 five_figs<- plot_grid(top_row,NULL,  bottom_row,  label_size = 12, nrow = 3, rel_heights = c(0.42,0.07, 0.51))
+
+
+
+# version for poster
+
+two_plots <-
+  plot_grid(clust_plot_best, forest_by_clusters$p,
+           label_size = 12,
+          axis = "t", nrow=1) 
+
+ggsave(plot=two_plots, 
+      #height=10, width=10, scale=1, dpi=300, # DA
+      #height=8, width=10, scale=1, dpi=300, # PD
+      height=3.5, width=8, scale=1.5, dpi=300, # PD
+       filename=paste0("figures_manuscript/figure4_poster.png"))
+
 
 
 
