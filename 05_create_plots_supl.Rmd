@@ -37,46 +37,9 @@ current_trait_category <- "md_unadj"
 pal<-c(unname(yarrr::piratepal("pony")))
 ```
 
-## MVMR analysis 1: childhood BMI + adult BMI -> mediator
-
-```{r message=F}
-dat <- read_tsv(paste0(results_path, current_trait_category, 
-                       "/mvmr/merged/merged_mvmr_BMIs-", current_trait_category,"-to-BCAC.tsv"))
 
 
-pal<-c(unname(yarrr::piratepal("pony")))
-p2<-ggplot(dat, aes(y=exposure, x=b, label=outcome, shape=exposure, colour=exposure)) +
-  geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
-  geom_point(size=2)+
-  #xlim(-1.2,0.5)+
-  scale_color_manual(values=pal)+
-  scale_shape_manual(values = c(19,20)) +
-  geom_vline(xintercept=0, linetype=3,) +
-  theme_minimal_hgrid(10, rel_small = 1) +
-  facet_wrap(~outcome, ncol=1)+
-  labs(color = "",y = "", x = "Beta",
-       title= paste0("MVMR results for ", gsub("_", " ",current_trait_category) ,", 95% CI") )+
-  theme(legend.position = "none", plot.title.position  = "plot")
-
-ggsave(paste0("figures/BMI-to-",current_trait_category ,"_MVMR.png"),
-       plot=p2, scale=2, 
-       width=10, height=5,
-       units=c("cm"), dpi=200, limitsize=F)
-
-```
-
-```{r}
-x<-plot_grid(p, p2, labels = c('', ''), nrow=2) # p is from 02_...Rmd
-
-ggsave(paste0("figures/BMI-to-MD_unimr_mvmr.png"),
-       plot=x, scale=1.4, bg="white",
-       width=8, height=11,
-       units=c("cm"), dpi=300, limitsize=F)
-```
-
-
-
-## MVMR analysis 2: childhood BMI + mediator -> breast cancer
+## MVMR analysis with prev mediators: childhood BMI + mediators -> breast cancer
 
 ```{r}
 # previous results
@@ -96,11 +59,6 @@ pp<-ggplot(dat_BMI, aes(y=reorder(direct, -or), x=or, label=outcome, colour=text
   labs(color = "",y = "", x = "Odds ratio", subtitle="" )+
   theme(legend.position = "none")
 
-
-```
-
-
-```{r message=F}
 
 dat <- read_tsv( paste0(results_path, current_trait_category, "/mvmr/merged/merged_mvmr_earlyBMI-",current_trait_category,"-to-BCAC.tsv")) %>% 
   mutate(mediator = case_when(grepl("nondense_area", mediator) ~ "MD non-dense area (unadj)",
