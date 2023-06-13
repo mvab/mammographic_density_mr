@@ -27,6 +27,8 @@ set_paths(currently_working_env)
 
 # metafile
 data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
+bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) %>% filter(!grepl("BRCA1", trait))
+
 source("functions.R")
 
 ```
@@ -492,11 +494,18 @@ total_data<-
   
               
 all_data <- bind_rows(total_data, direct_data) %>% 
-   mutate(outcome = factor(outcome, levels = c("BCAC 2017","BCAC 2020",
-                                     "ER+", "ER-",
-                                     "Luminal A", "Luminal B1", "Luminal B2", 
-                                      "HER2-enriched", "TNBC" )),
-         outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
+  filter(outcome != "BCAC 2020") %>% 
+   mutate(outcome = case_when(outcome == "BCAC 2017" ~ "Overall breast cancer",
+                              outcome == "ER+" ~ "ER+ breast cancer",
+                              outcome == "ER-" ~ "ER- breast cancer",
+                              outcome == "TNBC" ~ "Triple-negative subtype",
+                              outcome == "Luminal A" ~ "Luminal A subtype",
+                              outcome == "Luminal B1" ~ "Luminal B1 subtype",
+                              outcome == "Luminal B2" ~ "Luminal B2 subtype",
+                              outcome == "HER2-enriched" ~ "HER2-enriched subtype" )) %>% 
+   mutate(outcome = factor(outcome, levels = rev(c("Overall breast cancer",  "ER+ breast cancer","ER- breast cancer"  ,
+                                                "Luminal A subtype", "Luminal B1 subtype" , "Luminal B2 subtype",
+                                               "HER2-enriched subtype" , "Triple-negative subtype")))) %>% 
   mutate(effect = ifelse(exposure == "Childhood body size", "total", "direct")) %>% 
   mutate(exposure = ifelse(exposure == "Childhood body size", "Childhood body size \n(total effect)", exposure)) %>% 
   mutate(exposure = factor(exposure, levels= rev(c(
@@ -507,17 +516,16 @@ all_data <- bind_rows(total_data, direct_data) %>%
 
 
 
-pal<-(c(unname(yarrr::piratepal("pony"))))
-pal[6:7]<-c('darkgrey', "#FFEA5E")
+pal<- c("#EB5291FF", "#FBBB68FF" ,"#F5BACFFF", "#9DDAF5FF", "#6351A0FF" ,"#FFEA5E", "#1794CEFF", "#972C8DFF") # yarrr::piratepal("pony")
 p<-ggplot(all_data,
            aes(y=exposure, x=or,  colour=outcome, shape = effect_direction)) +
-  geom_point(size=2.2, 
+  geom_point(size=2.2,
              position = ggstance::position_dodgev(height = 0.7))+
   geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.1, 
             position = ggstance::position_dodgev(height = 0.7)) +
   scale_x_log10()+
 
-  theme_minimal_vgrid(9)+
+  theme_minimal_vgrid(8)+
   geom_vline(xintercept=1, linetype='longdash') +
   scale_color_manual(values=pal)+
   scale_shape_manual(values=c(16,1))+
@@ -536,6 +544,11 @@ p<-ggplot(all_data,
 ggsave(paste0("figures_manuscript/figure6_poster.png"),
        plot=p, scale=1, 
        width=10, height=12,
+       units=c("cm"), dpi=300, limitsize=F)
+
+ggsave(paste0("figures_manuscript/figure6_paper.png"),
+       plot=p, scale=1.3, 
+       width=8, height=10,
        units=c("cm"), dpi=300, limitsize=F)
 
 ```
@@ -577,18 +590,23 @@ dat_all2 <- dat_all %>% select(exposure, outcome, or, or_lci95, or_uci95, OR_CI)
                                            outcome =="Luminal B-HER2 negative" ~ "Luminal B2" ,
                                            outcome =="HER2 enriched"  ~ "HER2-enriched" ,
                                            outcome =="TNBC Basal-like"  ~ "TNBC" )) %>% 
-   mutate(outcome = factor(outcome, 
-                          levels = c("BCAC 2017","BCAC 2020",
-                                     "ER+", "ER-",
-                                     "Luminal A", "Luminal B1", "Luminal B2", 
-                                      "HER2-enriched", "TNBC" )),
-         outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
+  filter(outcome != "BCAC 2020") %>% 
+   mutate(outcome = case_when(outcome == "BCAC 2017" ~ "Overall breast cancer",
+                              outcome == "ER+" ~ "ER+ breast cancer",
+                              outcome == "ER-" ~ "ER- breast cancer",
+                              outcome == "TNBC" ~ "Triple-negative subtype",
+                              outcome == "Luminal A" ~ "Luminal A subtype",
+                              outcome == "Luminal B1" ~ "Luminal B1 subtype",
+                              outcome == "Luminal B2" ~ "Luminal B2 subtype",
+                              outcome == "HER2-enriched" ~ "HER2-enriched subtype" )) %>% 
+   mutate(outcome = factor(outcome, levels = rev(c("Overall breast cancer",  "ER+ breast cancer","ER- breast cancer"  ,
+                                                "Luminal A subtype", "Luminal B1 subtype" , "Luminal B2 subtype",
+                                               "HER2-enriched subtype" , "Triple-negative subtype"))))%>% 
    mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
                               ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null')))
 
 
-pal<-(c(unname(yarrr::piratepal("pony"))))
-pal[6:7]<-c('darkgrey', "#FFEA5E")
+pal<- c("#EB5291FF", "#FBBB68FF" ,"#F5BACFFF", "#9DDAF5FF", "#6351A0FF" ,"#FFEA5E", "#1794CEFF", "#972C8DFF") # yarrr::piratepal("pony")
 p<-ggplot(dat_all2,
            aes(y=exposure, x=or,  colour=outcome, shape = effect_direction)) +
   geom_point(size=3, 
@@ -640,7 +658,7 @@ dat_direct <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merge
               select(exposure, outcome, or, or_lci95, or_uci95) %>% 
               mutate(effect_direction = ifelse(or_lci95 > 1 & or_uci95 >= 1, 'ok',
                               ifelse(or_lci95 < 1 & or_uci95 <= 1, 'ok', 'overlaps null'))) %>% 
-              mutate(outcome = case_when(outcome =="Breast cancer (new)" ~ "BCAC 2020",
+    mutate(outcome = case_when(outcome =="Breast cancer (new)" ~ "BCAC 2020",
                                          outcome =="Breast cancer" ~ "BCAC 2017",
                                          outcome =="ER+ breast cancer" ~ "ER+",
                                          outcome =="ER- breast cancer" ~ "ER-",
@@ -648,14 +666,20 @@ dat_direct <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merge
                                                        outcome =="Luminal B, HER2+"   ~ "Luminal B1",  
                                                        outcome =="Luminal B, HER2-" ~ "Luminal B2" ,
                                                        outcome =="HER2-enriched"  ~ "HER2-enriched" ,
-                                                       outcome =="TN Basal"  ~ "TNBC" )) %>% 
-               mutate(outcome = factor(outcome, 
-                                      levels = c("BCAC 2017","BCAC 2020",
-                                                 "ER+", "ER-",
-                                                 "Luminal A", "Luminal B1", "Luminal B2", 
-                                                  "HER2-enriched", "TNBC" )),
-                     outcome = factor(outcome, levels = rev(levels(outcome)))) %>% 
-              mutate(effect = "Direct effect \n (accounted for\n childhood body size)")
+                                                       outcome =="TN Basal"  ~ "TNBC" ))  %>% 
+  filter(outcome != "BCAC 2020") %>% 
+   mutate(outcome = case_when(outcome == "BCAC 2017" ~ "Overall breast cancer",
+                              outcome == "ER+" ~ "ER+ breast cancer",
+                              outcome == "ER-" ~ "ER- breast cancer",
+                              outcome == "TNBC" ~ "Triple-negative subtype",
+                              outcome == "Luminal A" ~ "Luminal A subtype",
+                              outcome == "Luminal B1" ~ "Luminal B1 subtype",
+                              outcome == "Luminal B2" ~ "Luminal B2 subtype",
+                              outcome == "HER2-enriched" ~ "HER2-enriched subtype" )) %>% 
+   mutate(outcome = factor(outcome, levels = rev(c("Overall breast cancer",  "ER+ breast cancer","ER- breast cancer"  ,
+                                                "Luminal A subtype", "Luminal B1 subtype" , "Luminal B2 subtype",
+                                               "HER2-enriched subtype" , "Triple-negative subtype")))) %>% 
+  mutate(effect = "Direct effect \n (accounted for\n childhood body size)")
   
 dat_total <- dat_all2 %>% 
               mutate(effect = "\nTotal effect") %>% distinct()
@@ -664,21 +688,28 @@ dat_merged <- bind_rows(dat_total, dat_direct) %>%
   mutate(exposure = factor(exposure, levels= rev(c("Dense area", "Non-dense area", "Percent density")))) %>% 
   mutate(effect = factor(effect, levels= c(  "\nTotal effect", "Direct effect \n (accounted for\n childhood body size)")))
 
+
+# having to manually add labels as this is not a gris, but a facet plot
+ab_labels <- tibble(
+   label = c("a", "b"),
+  x = c(.2, .1),
+  y = c(.8, .4),
+  #color = c("black",  "black" ),
+  size = c(4,6))
   
 
-pal<-(c(unname(yarrr::piratepal("pony"))))
-pal[6:7]<-c('darkgrey', "#FFEA5E")
+pal<- c("#EB5291FF", "#FBBB68FF" ,"#F5BACFFF", "#9DDAF5FF", "#6351A0FF" ,"#FFEA5E", "#1794CEFF", "#972C8DFF") # yarrr::piratepal("pony")
 p<-ggplot(dat_merged,
            aes(y=exposure, x=or,  colour=outcome, shape = effect_direction)) +
   geom_point(aes(size = effect), 
              position = ggstance::position_dodgev(height = 0.7))+
   geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=0.1, 
             position = ggstance::position_dodgev(height = 0.7)) +
-  theme_minimal_vgrid(9s)+
+  theme_minimal_vgrid(8)+
   panel_border()+
   scale_color_manual(values=pal)+
   scale_shape_manual(values=c(16,1))+
-  scale_size_manual(values=c(2.8, 2.1))+
+  scale_size_manual(values=c(2.7, 2))+
   scale_x_log10(breaks = c(0,1,2,3))+
   theme(strip.text = element_text(face = 'bold'),
         axis.text.y = element_text(angle = 90, vjust=1, hjust = 0.5, face = "bold"),
@@ -690,14 +721,22 @@ p<-ggplot(dat_merged,
   facet_grid(cols=vars(effect))+
   labs(color = "Outcome",y = "Exposure\n", x = "Odds ratio", shape="")+
   theme(legend.position = "right", legend.direction = "vertical", 
-        plot.title.position = "plot")+
-  guides(colour = guide_legend(reverse = TRUE), shape="none", size="none")s
+        plot.title.position = "plot",
+        strip.text = element_text(size = 7))+
+  guides(colour = guide_legend(reverse = TRUE), shape="none", size="none")
+
 
 
 ggsave(paste0("figures_manuscript/figure3_poster.png"),
        plot=p, scale=1, 
        width=14, height=15,
        units=c("cm"), dpi=300, limitsize=F)
+
+ggsave(paste0("figures_manuscript/figure3_paper.png"),
+       plot=p, scale=1.4, 
+       width=9, height=9,
+       units=c("cm"), dpi=300, limitsize=F)
+
 
 ```
 
