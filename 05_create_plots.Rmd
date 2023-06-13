@@ -294,9 +294,9 @@ dat_all <- bind_rows(dat_merged %>% mutate(cov = "Direct effect (MVMR) "),
 
 pal<-c(unname(yarrr::piratepal("pony")))[c(1,8,2)]
 ## adhoc change outcome label
-dat_all <- dat_all %>% mutate(outcome_short = case_when(outcome == "Dense area" ~ "DA",
-                                                        outcome == "Non-dense area" ~ "NDA",
-                                                        outcome == "Percent density" ~ "PD"))
+dat_all <- dat_all %>% mutate(outcome_short = case_when(outcome == "Dense area" ~ "Dense \narea",
+                                                        outcome == "Non-dense area" ~ "Non-dense \narea",
+                                                        outcome == "Percent density" ~ "Percent \ndensity"))
 
 pX<-ggplot(dat_all, aes(y=exposure, x=b, label=outcome_short, shape=effect_direction, colour=exposure)) +
   geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
@@ -306,24 +306,29 @@ pX<-ggplot(dat_all, aes(y=exposure, x=b, label=outcome_short, shape=effect_direc
   scale_shape_manual(values=c(16,1))+
   geom_vline(xintercept=0, linetype=3, color = '#3B3B3B') +
   #geom_text(aes(label=beta_CI),hjust=0.28, vjust=-1, size =2.9, color = '#636363')+
-  theme_minimal_hgrid(10, rel_small = 1) +
+  theme_minimal_hgrid(8, rel_small = 1) +
   #panel_border() +
   facet_grid(rows=vars(outcome_short), cols=vars(cov))+#, switch = "y") +
   scale_y_discrete(position = "right")+
   labs(color = "Exposure",y = "Outcome",
        x = "\nbeta coefficient (1 SD change in MD phenotype per body size category or age SD change)\n")+
-  theme(legend.position = "left", legend.justification = "center", ,
+  theme(legend.position = "bottom", legend.justification = "center", 
         plot.title.position  = "plot",
         strip.text.x = element_text(face = "bold"),
         strip.text.y = element_text(face = "bold"),
         axis.text.y=element_blank(),
         axis.text.x =element_text(size = 8),
         panel.spacing = unit(1, "lines"))+
-  guides(shape="none", colour=guide_legend(reverse = T))
+  guides(shape="none", colour=guide_legend(reverse = T, ncol = 1,byrow=TRUE))
 
 ggsave(paste0("figures_manuscript/figure2_poster.png"),
        plot=pX, scale=2, 
        width=10, height=4,
+       units=c("cm"), dpi=300, limitsize=F)
+
+ggsave(paste0("figures_manuscript/figure2_paper.png"),
+       plot=pX, scale=2, 
+       width=7, height=5,
        units=c("cm"), dpi=300, limitsize=F)
 ```
 
