@@ -193,7 +193,8 @@ res_outliers_presso <- harmonised %>%
 
 res_single_presso <- bind_rows(res_single, res_outliers_presso)
 outliers_list = append(outliers, 'Outlier corrected - IVW')
-        
+
+res_single_presso <- res_single_presso %>% mutate(outcome = "Overall breast cancer")
 
 forest_presso <- mr_forest_plot_outliers(res_single_presso,  outliers_list= outliers_list, outliers_colour = "steelblue", method = "MR-PRESSO") 
 
@@ -244,6 +245,7 @@ eggrad <- egger_radial(raddat, alpha=0.05/nrow(raddat), weights=3) # bonf
 #eggrad <- egger_radial(raddat, alpha=0.05, weights=3) # 0.05
 dim(eggrad$outliers)[1] #12 outliers at 0.05  (9 bonf)
 
+
 #plot_radial(ivwrad,radial_scale = T, show_outliers = F,scale_match= T)
 #plot_radial(eggrad,radial_scale = T, show_outliers = F,scale_match= T)
 
@@ -270,6 +272,8 @@ res_outliers_radial <- harmonised %>%
 
 res_outliers_radial <- bind_rows(res_single, res_outliers_radial)
 outliers_list = append(ivwrad$sortoutliers$SNP, 'Outlier corrected - IVW')
+
+res_outliers_radial <- res_outliers_radial %>% mutate(outcome = "Overall breast cancer")
 
 forest_radial <- mr_forest_plot_outliers(res_outliers_radial,  outliers_list=outliers_list, outliers_colour = "orange", method = "Radial-MR") 
 
@@ -325,7 +329,7 @@ load(file=paste0(results_path,"MRClust_results/",exp_code ,"_mrclust_results.Rda
 
 clust_plot_best = cluster_results$plots$two_stage +
   ggplot2::xlab(paste0("Genetic association with ", exposure_name)) +
-  ggplot2::ylab("Genetic association with Breast cancer (BCAC 2017)") +
+  ggplot2::ylab("Genetic association with Overall breast cancer") +
   ggplot2::labs(title = "")+
   ggplot2::labs(subtitle = "MR-Clust scatter plot")+
   ggplot2::theme(axis.title.y = ggplot2::element_text(size = 8), 
@@ -376,6 +380,8 @@ cbpalette <- c(cluster_Null = "#CC79A7", cluster_Junk = "#000000", `cluster_1` =
 
 clust_snp_df_top_cluster<-read_tsv(paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
 
+res_single <- res_single %>% mutate(outcome = "Overall breast cancer")
+
 forest_by_clusters <- mr_forest_plot_clusters(res_single,  outliers_df=clust_snp_df_top_cluster, outliers_colour_list=cbpalette)
 
 forest_data = list(forest_by_clusters=forest_by_clusters,
@@ -413,6 +419,8 @@ res_single_w_clust <- bind_rows(res_single,
 extra_cluster_df <- data.frame(rsID = c("cluster_1", "cluster_2", "cluster_3", "cluster_4"),
                               cluster = c("cluster_1", "cluster_2", "cluster_3", "cluster_4"))
 clust_snp_df_top_cluster <- bind_rows(clust_snp_df_top_cluster,extra_cluster_df)
+
+res_single <- res_single %>% mutate(outcome = "Overall breast cancer")
 
 forest_by_clusters <- mr_forest_plot_clusters(res_single_w_clust, 
                                               outliers_df=clust_snp_df_top_cluster, outliers_colour_list=cbpalette)
@@ -568,9 +576,10 @@ four_plots <-
 
 ggsave(plot=four_plots, 
       #height=10, width=10, scale=1, dpi=300, # DA
-      #height=8, width=10, scale=1, dpi=300, # PD
+      #height=8, width=10, scale=1, dpi=300, # NDA
       height=7, width=10, scale=1, dpi=300, # PD
-       filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_combined_plots.png"))
+      # filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_combined_plots.png"))
+      filename=paste0("figures_manuscript/","figure4_", exp_code ,".png"))
 
 
 
@@ -604,10 +613,7 @@ two_plots <-
 ggsave(plot=two_plots, 
       #height=10, width=10, scale=1, dpi=300, # DA
       #height=8, width=10, scale=1, dpi=300, # PD
-      height=3.5, width=8, scale=1.5, dpi=300, # PD
+      height=7, width=14, scale=0.6, dpi=300, # PD
        filename=paste0("figures_manuscript/figure4_poster.png"))
-
-
-
 
 ```
