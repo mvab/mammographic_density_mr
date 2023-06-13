@@ -107,7 +107,7 @@ mvmr_aaM_cbmi_to_md <- read_tsv(paste0(results_path,"md_w_traits/","mvmr_results
                         select(-starts_with("or")) %>% 
                         select(exposure, outcome,  nsnp, pval, se, everything()) %>% 
                         mutate(exposure = ifelse(exposure =="age_at_menarche_ukb",  "Age at menarche", exposure)) %>% 
-                        mutate(pair = ifelse(pair =="age_at_menarche_ukb",  "Age at menarche", pair)) 
+                        mutate(pair = ifelse(pair =="age_at_menarche_ukb",  "Age at menarche", pair)) %>% 
                         filter(pair == "Age at menarche")
 outs <- unique(mvmr_aaM_cbmi_to_md$outcome)
 
@@ -178,7 +178,9 @@ total_data<-
 presso_da <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "DA_unadj" ,"_presso_results.tsv"))
 presso_nda <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "NDA_unadj" ,"_presso_results.tsv"))
 presso_pd <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "PD_unadj" ,"_presso_results.tsv"))
-mrpresso = bind_rows(presso_da, presso_nda, presso_pd)
+mrpresso = bind_rows(presso_da, presso_nda, presso_pd) %>% 
+           TwoSampleMR::generate_odds_ratios() %>% select(-lo_ci, -up_ci) %>% 
+           mutate_at(vars(starts_with("or")), funs(ifelse(grepl("rs", SNP), NA, . )))
 mrpresso$analysis <- "MR-PRESSO"
 
 
@@ -186,7 +188,9 @@ mrpresso$analysis <- "MR-PRESSO"
 radial_da <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "DA_unadj", "_radial_supl.tsv"))
 radial_nda <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "NDA_unadj", "_radial_supl.tsv"))
 radial_pd <- read_tsv(paste0(results_path, current_trait_category, "/presso_radial/", "PD_unadj", "_radial_supl.tsv"))
-radial <- bind_rows(radial_da, radial_nda, radial_pd)
+radial <- bind_rows(radial_da, radial_nda, radial_pd) %>% 
+           TwoSampleMR::generate_odds_ratios() %>% select(-lo_ci, -up_ci) %>% 
+           mutate_at(vars(starts_with("or")), funs(ifelse(grepl("rs", SNP), NA, . )))
 radial$analysis <- "Radial-MR"
 # cluster 
 cluster_da <- read_tsv(paste0(results_path,"MRClust_results/","DA_unadj" ,"_cluster_supl.tsv"))
