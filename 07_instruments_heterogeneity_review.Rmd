@@ -1,5 +1,5 @@
 ---
-title: "06_instruments_review"
+title: "Exploration of MD SNPs heterogeneity using various robust methods"
 author: "Marina Vabistsevits"
 date: "`r Sys.Date()`"
 output: html_document
@@ -21,7 +21,6 @@ library(ieugwasr)
 
 library(cowplot)
 library(ggplot2)
-
 ```
 
 ```{r message=F}
@@ -39,71 +38,73 @@ bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv"))
 source("functions.R")
 ```
 
-# Select and load data 
+# Select and load data - one at a time
 
 ```{r}
-# dense
-da <- read_tsv(paste0(data_path_tophits, "dense_area_tophits.tsv"))
-exposure_name <- unique(da$exposure)
-exp_code <- "DA" 
 
-da <- read_tsv(paste0(data_path_tophits, "dense_area_tophits_all.tsv")) 
-exposure_name <- unique(da$exposure)
-exp_code <- "DA_all"
+# primary MD unadjusted data
 
 da <- read_tsv(paste0(data_path_tophits, "dense_area_unadj_tophits.tsv")) 
 exposure_name <- unique(da$exposure)
 exp_code <- "DA_unadj"
 
-da <- read_tsv(paste0(data_path_tophits, "BCAC_DA_tophits.tsv")) 
-exposure_name <- unique(da$exposure)
-exp_code <- "DA_bcac"
-
-
-
-
-#nondense
-da <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits.tsv"))
-exposure_name <- unique(da$exposure)
-exp_code <- "NDA" 
-
-da <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits_all.tsv")) 
-exposure_name <- unique(da$exposure)
-exp_code <- "NDA_all"
-
 da <- read_tsv(paste0(data_path_tophits, "nondense_area_unadj_tophits.tsv")) 
 exposure_name <- unique(da$exposure)
 exp_code <- "NDA_unadj"
-
-da <- read_tsv(paste0(data_path_tophits, "BCAC_NDA_tophits.tsv")) 
-exposure_name <- unique(da$exposure)
-exp_code <- "NDA_bcac"
-
-
-
-
-# percent density
-da <- read_tsv(paste0(data_path_tophits, "percent_density_tophits.tsv"))
-exposure_name <- unique(da$exposure)
-exp_code <- "PD" 
-
-da <- read_tsv(paste0(data_path_tophits, "percent_density_tophits_all.tsv")) 
-exposure_name <- unique(da$exposure)
-exp_code <- "PD_all"
 
 da <- read_tsv(paste0(data_path_tophits, "percent_density_unadj_tophits.tsv")) 
 exposure_name <- unique(da$exposure)
 exp_code <- "PD_unadj"
 
 
-da <- read_tsv(paste0(data_path_tophits, "BCAC_PMD_tophits.tsv")) 
-exposure_name <- unique(da$exposure)
-exp_code <- "PD_bcac"
+# # secondary "adjsuted for BMI" MD data
+# 
+# da <- read_tsv(paste0(data_path_tophits, "dense_area_tophits.tsv"))
+# exposure_name <- unique(da$exposure)
+# exp_code <- "DA" 
+# 
+# da <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits.tsv"))
+# exposure_name <- unique(da$exposure)
+# exp_code <- "NDA" 
+# 
+# da <- read_tsv(paste0(data_path_tophits, "percent_density_tophits.tsv"))
+# exposure_name <- unique(da$exposure)
+# exp_code <- "PD" 
+# 
+# 
+# # exploratory "all top hits" data
+# 
+# da <- read_tsv(paste0(data_path_tophits, "dense_area_tophits_all.tsv")) 
+# exposure_name <- unique(da$exposure)
+# exp_code <- "DA_all"
+# 
+# da <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits_all.tsv")) 
+# exposure_name <- unique(da$exposure)
+# exp_code <- "NDA_all"
+# 
+# da <- read_tsv(paste0(data_path_tophits, "percent_density_tophits_all.tsv")) 
+# exposure_name <- unique(da$exposure)
+# exp_code <- "PD_all"
+# 
+# 
+# # data from BCAC MD for comarison
+# 
+# da <- read_tsv(paste0(data_path_tophits, "BCAC_DA_tophits.tsv")) 
+# exposure_name <- unique(da$exposure)
+# exp_code <- "DA_bcac"
+# 
+# da <- read_tsv(paste0(data_path_tophits, "BCAC_NDA_tophits.tsv")) 
+# exposure_name <- unique(da$exposure)
+# exp_code <- "NDA_bcac"
+# 
+# da <- read_tsv(paste0(data_path_tophits, "BCAC_PMD_tophits.tsv")) 
+# exposure_name <- unique(da$exposure)
+# exp_code <- "PD_bcac"
 
 
 ```
 
-# MR and sensitivity
+# MR and basic sensitivity analyses
 
 ```{r}
 
@@ -558,12 +559,6 @@ ggsave(plot=phewas_plot,
 ```{r}
 library(cowplot)
 
-#top_row <- plot_grid( p1[[1]], p3[[1]],  rel_widths = c(1.6, 0.8),
-#                      labels= c("Scatter plot",
-#                                "Leave-one-out plot"),
-#                      label_size = 9)
-
-
 four_plots <-
   plot_grid(forest_presso, forest_radial,
            clust_plot_best, forest_by_clusters$p,
@@ -580,7 +575,6 @@ ggsave(plot=four_plots,
       height=7, width=10, scale=1, dpi=300, # PD
       # filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_combined_plots.png"))
       filename=paste0("figures_manuscript/","figure4_", exp_code ,".png"))
-
 
 
 
@@ -604,7 +598,6 @@ five_figs<- plot_grid(top_row,NULL,  bottom_row,  label_size = 12, nrow = 3, rel
 
 
 # version for poster
-
 two_plots <-
   plot_grid(clust_plot_best, forest_by_clusters$p,
            label_size = 12,

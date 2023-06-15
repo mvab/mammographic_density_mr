@@ -1,6 +1,8 @@
 ---
-title: "Univarite MR of traits to MD"
+title: "Bidirectional and Multivariable MR of multiple traits to MD"
 output: html_document
+author: "Marina Vabistsevits"
+date: "`r Sys.Date()`"
 ---
 
 ```{r setup, include=FALSE}
@@ -37,70 +39,54 @@ source("functions_mvmr.R")
 ```
 
 
-# Run MR for all 
-
 ```{r}
-
 # specify group to process if data is in textfiles
 current_trait_category <- "md_unadj"
 outcomes <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(!is.na(full_data)) %>%  pull(trait_file_name) 
 
+
 md_instruments <- data_lookup %>% filter(trait_category == current_trait_category) %>% pull(tophits_data)
 md_snps<- bind_rows(lapply(paste0(data_path_tophits, md_instruments), read_tsv))
-
 ```
 
-## bidirectional MR: "trait -> MD" and "MD -> trait", where trait is age at menarche (x2) and IGF1
+
+## Bidirectional MR: "trait -> MD" and "MD -> trait", where trait is age at menarche (x2) and IGF1
 
 ```{r}
-
 traits <- data_lookup %>%  filter(trait_category %in% c("hormones", "reproductive_traits")) %>% pull(trait_file_name)
 
- ### direction 1 trait - MD
-
+### direction 1 trait - MD
 direction1 <-tibble()
 sens1 <-tibble()
 for (trait_name in traits){
-  
-  
-   dat <- data_lookup %>% filter(trait_file_name == trait_name) 
+  dat <- data_lookup %>% filter(trait_file_name == trait_name) 
    
-   if (is.na(dat$mrbase.id)){ # text file data
-      trait_as_exp = dat %>% pull(tophits_data)
-      trait_as_exp <- read_tsv(paste0(data_path_tophits, trait_as_exp),  show_col_types = F)
-      
-  
-     } else { # mrbase data
-       
-      data_id = dat %>% pull(mrbase.id)
-      trait_as_exp <- extract_instruments(data_id) %>% clump_data()
-      
-     }
+  if (is.na(dat$mrbase.id)){ # text file data
+    trait_as_exp = dat %>% pull(tophits_data)
+    trait_as_exp <- read_tsv(paste0(data_path_tophits, trait_as_exp),  show_col_types = F)
+  } else { # mrbase data
+    data_id = dat %>% pull(mrbase.id)
+    trait_as_exp <- extract_instruments(data_id) %>% clump_data()
+  }
      
    
-   trait_ss <- dat %>% pull(sample_size)
-
-
+  trait_ss <- dat %>% pull(sample_size)
   for (out in outcomes){
     
     print(paste0("=========Doing ", trait_name, " against ", out))
   
     # read exposure and outcome
-    
     exposure_dat <- trait_as_exp
     
     md_pheno_as_outcome <- data_lookup %>% 
           filter(trait_file_name == out) %>%  filter(trait_category == current_trait_category) %>% pull(full_data)
     outcome <- vroom(paste0(data_path_gwas, md_pheno_as_outcome), show_col_types = F)
-      
     outcome_dat <- outcome %>% filter(SNP %in% exposure_dat$SNP)
     
     # harmonise
-    
     harmonised <- harmonise_data(exposure_dat, outcome_dat )
     
     # do steiger
-      
     streiger =  calc_steiger(harmonised, exposure_ss = trait_ss, outcome_ss = 24192) 
     #streiger$summary
     
@@ -109,10 +95,8 @@ for (trait_name in traits){
            split_outcome() %>% 
            split_exposure() %>% 
            generate_odds_ratios()
-    
     direction1<- bind_rows(direction1, res)
-    
-    
+  
     # do sensitiviry
     out_sensitivity<-
       full_join(mr_pleiotropy_test(harmonised),
@@ -126,72 +110,57 @@ for (trait_name in traits){
    }
 
 
-
-
 ### direction 2 MD-trait
-
 direction2 <-tibble()
 sens2 <-tibble()
-
 for (out in outcomes){
-
   
   for (trait_name in traits){
-    
      print(paste0("=========Doing ", out, " against ", trait_name))
-
-    
      dat <- data_lookup %>% filter(trait_file_name == trait_name) 
      
      if (is.na(dat$mrbase.id)){ # text file data
-
-      trait_as_out = dat %>% pull(full_data)
-      trait_as_out <- vroom(paste0(data_path_gwas, trait_as_out),  show_col_types = F)
-  
-     } else { # mrbase data
-       
-      data_id = dat %>% pull(mrbase.id)
-      trait_as_out <- extract_outcome_data(snps = unique(md_snps$SNP), 
-                                              outcomes = data_id)
+        trait_as_out = dat %>% pull(full_data)
+        trait_as_out <- vroom(paste0(data_path_gwas, trait_as_out),  show_col_types = F)
+      } else { # mrbase data
+        data_id = dat %>% pull(mrbase.id)
+        trait_as_out <- extract_outcome_data(snps = unique(md_snps$SNP), 
+                                                outcomes = data_id)
      }
-     
-     trait_ss <- dat %>% pull(sample_size)
+
+      md_pheno_as_exposure <- data_lookup %>% 
+            filter(trait_file_name == out) %>%  filter(trait_category == current_trait_category) %>% pull(tophits_data)
+          
+      exposure_dat <- read_tsv(paste0(data_path_tophits, md_pheno_as_exposure),  show_col_types = F)
       
-    
-    md_pheno_as_exposure <- data_lookup %>% 
-          filter(trait_file_name == out) %>%  filter(trait_category == current_trait_category) %>% pull(tophits_data)
-        
-    exposure_dat <- read_tsv(paste0(data_path_tophits, md_pheno_as_exposure),  show_col_types = F)
-    
-    outcome <- trait_as_out
-    outcome_dat <- outcome %>% filter(SNP %in% exposure_dat$SNP)
-    
-    # harmonise
-    
-    harmonised <- harmonise_data(exposure_dat, outcome_dat )
-    
-    # do steiger
+      outcome <- trait_as_out
+      outcome_dat <- outcome %>% filter(SNP %in% exposure_dat$SNP)
       
-    streiger =  calc_steiger(harmonised, exposure_ss = 24192, outcome_ss = trait_ss)
-    streiger$summary
+      # harmonise
+      harmonised <- harmonise_data(exposure_dat, outcome_dat )
+      
+      # do steiger
+      trait_ss <- dat %>% pull(sample_size) 
+      streiger =  calc_steiger(harmonised, exposure_ss = 24192, outcome_ss = trait_ss)
+      streiger$summary
+      
+      # do mr
+      res <- mr(harmonised, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) %>% 
+             split_outcome() %>% 
+             split_exposure() %>% 
+             generate_odds_ratios()
+      
+      direction2<- bind_rows(direction2, res)
     
-    # do mr
-    res <- mr(harmonised, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) %>% 
-           split_outcome() %>% 
-           split_exposure() %>% 
-           generate_odds_ratios()
-    
-    direction2<- bind_rows(direction2, res)
-    
-    
-    # do sensitiviry
-    out_sensitivity<-
-      full_join(mr_pleiotropy_test(harmonised),
-                mr_heterogeneity(harmonised, method_list=c("mr_egger_regression", "mr_ivw"))) %>% 
-      select(-c("id.outcome", "id.exposure"))   %>% filter(method=="Inverse variance weighted") %>% 
-      left_join(streiger$summary)    
-    
-    sens2 <- bind_rows(sens2, out_sensitivity )
+  
+      # do sensitivity
+      out_sensitivity<-
+        full_join(mr_pleiotropy_test(harmonised),
+                  mr_heterogeneity(harmonised, method_list=c("mr_egger_regression", "mr_ivw"))) %>% 
+        select(-c("id.outcome", "id.exposure"))   %>% filter(method=="Inverse variance weighted") %>% 
+        left_join(streiger$summary)    
+      
+      sens2 <- bind_rows(sens2, out_sensitivity )
   
   }
 
@@ -211,8 +180,7 @@ write_tsv(sens_results, paste0(results_path, current_trait_category,"/", current
 
 
 ```{r}
-
-# testing plot
+# quick plot to check biMR results
 dat<- read_tsv( paste0(results_path, current_trait_category,"/", current_trait_category,"_w_traits_biMR_results.tsv")) %>% 
       filter(method == "Inverse variance weighted") %>% 
       filter(dir == 1) %>% 
@@ -227,7 +195,6 @@ pal<-rev(c(unname(yarrr::piratepal("pony"))))[c(2,1)]
 p<-ggplot(dat, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colour=exposure)) +
   geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
   geom_point(size=2.5)+
-  #xlim(-1.2,0.5)+
   scale_color_manual(values=pal)+
   scale_shape_manual(values=c(16,1))+
   geom_vline(xintercept=0, linetype=3) +
@@ -244,7 +211,8 @@ p<-ggplot(dat, aes(y=exposure, x=b, label=outcome, shape=effect_direction, colou
 
 
 
-## MVMR cBMI + trait -> MD
+## MVMR:  cBMI + trait -> MD; where trait is age at menarche or IGF
+
 ```{r}
 current_trait_category <- "md_unadj"
 
@@ -255,8 +223,6 @@ early_bmi_gwas <- vroom(paste0(data_path_gwas, early_bmi_gwas_file))
 
 traits <- data_lookup %>%  filter(trait_category %in% c("hormones", "reproductive_traits")) %>% pull(trait_file_name)
 traits<-traits[c(2,3)]
-
-
 
 mvmr <-tibble()
 mvmr_sens <-tibble()
@@ -272,7 +238,6 @@ for (trait_name in traits){
       trait_as_out =  dat %>% pull(full_data)
       trait_as_out <- vroom(paste0(data_path_gwas, trait_as_out))
 
-      
      } else { # mrbase data
       data_id = dat %>% pull(mrbase.id)
       trait_as_exp <- extract_instruments(data_id) %>% clump_data()
@@ -282,7 +247,6 @@ for (trait_name in traits){
   for (out in outcomes){
     
     print(paste0("=========Doing MVMR of ", trait_name, "  and childhood BMI against ", out))
-  
     # read  outcome
     exposure_dat <- trait_as_exp
     md_pheno_as_outcome <- data_lookup %>% 
@@ -303,7 +267,7 @@ for (trait_name in traits){
       full_gwas_list <- list(early_bmi_gwas, trait_as_out)
     
     
-    # create exposure_dat format
+      # create exposure_dat format
       exposure_dat <- get_mv_exposures(exposure_list, full_gwas_list, clump_exposures = T) 
     
       #Next, also extract those SNPs from the outcome.
@@ -322,7 +286,6 @@ for (trait_name in traits){
                     generate_odds_ratios() %>% 
                     select(-id.exposure, -id.outcome) %>% 
                     mutate(pair = trait_name)
-      
       
       ### sensitivity analysis
       
@@ -351,7 +314,6 @@ for (trait_name in traits){
       mvmr_sens_df$Qstat <- pres$Qstat
       mvmr_sens_df$Qpval <- pres$Qpval
       
-
     mvmr<- bind_rows(mvmr, mv_res)
     mvmr_sens <- bind_rows(mvmr_sens, mvmr_sens_df)
   
@@ -361,12 +323,11 @@ for (trait_name in traits){
 write_tsv(mvmr, paste0(results_path,"md_w_traits/","mvmr_results_w_cBMI_",current_trait_category,".tsv"))
 write_tsv(mvmr_sens, paste0(results_path,"md_w_traits/","mvmr_sens_results_w_cBMI_",current_trait_category,".tsv"))
 
-
 ```
 
 
 ```{r}
-# testing plot
+# quick plot to test MVMR
 dat<- read_tsv(paste0(results_path, "md_w_traits/","mvmr_results_w_cBMI_",current_trait_category,".tsv")) %>% 
       mutate(exposure = ifelse(exposure == "age_at_menarche_perry", "Age at menarche (Perry)", exposure)) %>% 
       mutate(exposure = ifelse(exposure == "age_at_menarche_ukb", "Age at menarche (UKB)", exposure)) %>%

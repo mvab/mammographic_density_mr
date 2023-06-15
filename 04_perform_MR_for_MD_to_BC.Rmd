@@ -1,5 +1,7 @@
 ---
-title: "Univariate MR of mediators to BC"
+title: "Univarite MR of MD to BC"
+author: "Marina Vabistsevits"
+date: "`r Sys.Date()`"
 output: html_document
 ---
 
@@ -41,12 +43,6 @@ source("functions.R")
 source = "textfiles"
 current_trait_category <- "md_unadj"
 mediators <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(!is.na(full_data)) %>%  pull(tophits_data)
-
-# specify group to process  if the data is in MRBase
-#source = "mrbase"
-#current_trait_category <- ".."
-#mediators <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(!is.na(mrbase.id)) %>%  pull(mrbase.id)
-
 ```
 
 
@@ -197,130 +193,12 @@ for (i in 1:length(bcac_lookup$trait)){
   dat_sensitivity <- left_join(dat_sensitivity, dat_steiger, by = c("exposure" = "exposure", "outcome"="outcome"))
   
   
-  
   # save sensitivity analyses results
   write_tsv(dat_sensitivity, paste0(ind_res_dir,"merged_sens_mr_mediators_", current_trait_category,"-to-BCAC_", outcome_trait_name,".tsv"))
   
 }
 ```
 
-# TESTING
-```{r}
-da_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_DA_sieh_tophits.tsv")) #16
-nda_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_NDA_sieh_tophits.tsv")) # 11
-pd_old <- read_tsv(paste0(data_path_tophits, "mammographic_density_PD_sieh_tophits.tsv")) # 10
-                   
 
-da_new <- read_tsv(paste0(data_path_tophits, "dense_area_tophits.tsv")) # 25
-nda_new <- read_tsv(paste0(data_path_tophits, "nondense_area_tophits.tsv")) # 16
-pd_new <- read_tsv(paste0(data_path_tophits, "percent_density_tophits.tsv")) # 16
-
-da_unadj <- read_tsv(paste0(data_path_tophits, "dense_area_unadj_tophits.tsv")) # 21
-nda_unadj <- read_tsv(paste0(data_path_tophits, "nondense_area_unadj_tophits.tsv")) # 8
-pd_unadj <- read_tsv(paste0(data_path_tophits, "percent_density_unadj_tophits.tsv")) # 11
-
-
-length(intersect(da_old$SNP , da_new$SNP)) # 15
-length(intersect(nda_old$SNP , nda_new$SNP)) #11
-length(intersect(pd_old$SNP , pd_new$SNP)) # 9
-
-length(intersect(da_unadj$SNP , da_new$SNP)) # 8
-length(intersect(nda_unadj$SNP , nda_new$SNP)) #1
-length(intersect(pd_unadj$SNP , pd_new$SNP)) # 1
-
-
-md_gwas_DA_tophits <- read_csv(paste0(data_path, "MD_raw_files/", "MD_significant_snps_DA_2022-02-11.csv")) %>%  # 668
-                      select(-chrom, -pos, SNP = rsid)
-md_gwas_NDA_tophits <- read_csv(paste0(data_path, "MD_raw_files/", "MD_significant_snps_NDA_2022-02-11.csv")) %>% # 670
-                      select(-chrom, -pos, SNP = rsid)
-md_gwas_PD_tophits <- read_csv(paste0(data_path, "MD_raw_files/", "MD_significant_snps_PD_2022-02-11.csv")) %>%  # 484
-                      select(-chrom, -pos, SNP = rsid)
-
- 
-length(intersect(md_gwas_DA_tophits$SNP , da_new$SNP)) # 26 # OK
-length(intersect(md_gwas_NDA_tophits$SNP , nda_new$SNP)) #16
-length(intersect(md_gwas_PD_tophits$SNP , pd_new$SNP)) # 16
-
-length(intersect(md_gwas_DA_tophits$SNP , da_old$SNP)) # 16  # OK
-length(intersect(md_gwas_NDA_tophits$SNP , nda_old$SNP)) #11
-length(intersect(md_gwas_PD_tophits$SNP , pd_old$SNP)) # 10
-
-
-
-
-
-
-full_join(
-  da_old %>%  dplyr::select(SNP, old_beta.exposure = beta.exposure, old_pval = pval.exposure),
-  da_new %>%  dplyr::select(SNP, new_beta.exposure = beta.exposure, new_pval = pval.exposure),
-  by ='SNP') %>% mutate(prev = ifelse(SNP %in% prev_reported, T, F))  %>% View()
-
-
-
-
-md_gwas_DA_tophits <- read_csv(paste0(data_path, "MD_raw_files/", "MD_significant_snps_DA_2022-02-11.csv")) %>% 
-                      dplyr::select(-chrom, -pos, SNP = rsid)
-
-
-prev_reported <- c(
-"rs11205277", "rs11205303", 
-"rs12468790", "rs4849864", 
-"rs17625845", "rs10034692", 
-"rs149689338", "rs71219402", 
-"rs186749", "rs335143", 
-"rs335160", "rs9485370", 
-"rs4897108", "rs12665607", 
-"rs60705924", "rs7816345", 
-"rs10086016", "rs10995190", 
-"rs10995181", "rs2089176", 
-"rs3817198", "rs703556", 
-"rs5800526", "rs1265507", 
-"rs9302903", "rs7289126", 
-"rs17001868", "rs73169057", 
-"rs6001984")
-
-md_gwas_DA_tophits %>% mutate(prev = ifelse(SNP %in% prev_reported, T, F)) %>% View()
-
-
-## extract from adj and unadjust
-
-# da
-da_new_all <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/dense_area_GWAS_tidy_outcome.txt.gz") %>% select(SNP, beta_adj = beta.outcome, pval_adj = pval.outcome)
-da_unadj_all <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/dense_area_unadj_GWAS_tidy_outcome.txt.gz")%>% select(SNP, beta_unadj = beta.outcome, pval_unadj = pval.outcome)
-
-da_merged<- full_join(da_new_all, da_unadj_all) %>% 
-            filter(grepl("rs", SNP)) %>% 
-            mutate(adj = ifelse(SNP %in% da_new$SNP, 1, 0)) %>% 
-            mutate(unadj = ifelse(SNP %in% da_unadj$SNP, 1, 0)) %>% 
-            filter(adj==1 | unadj==1)
-write_tsv(da_merged, paste0(results_path, current_trait_category, "/compare_DA_adj_unadj.tsv"))
-da_merged<- read_tsv(paste0(results_path, current_trait_category, "/compare_DA_adj_unadj.tsv"))
-
-# nda
-nda_new_all <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/nondense_area_GWAS_tidy_outcome.txt.gz") %>% select(SNP, beta_adj = beta.outcome, pval_adj = pval.outcome)
-nda_unadj_all <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/nondense_area_unadj_GWAS_tidy_outcome.txt.gz")%>% select(SNP, beta_unadj = beta.outcome, pval_unadj = pval.outcome)
-
-nda_mergedX<- full_join(nda_new_all, nda_unadj_all) %>% 
-            filter(grepl("rs", SNP)) %>% 
-            mutate(adj = ifelse(SNP %in% nda_new$SNP, 1, 0)) %>% 
-            mutate(unadj = ifelse(SNP %in% nda_unadj$SNP, 1, 0)) %>% 
-            filter(adj==1 | unadj==1)
-write_tsv(nda_merged, paste0(results_path, current_trait_category, "/compare_NDA_adj_unadj.tsv"))
-nda_merged<- read_tsv(paste0(results_path, current_trait_category, "/compare_NDA_adj_unadj.tsv"))
-
-
-# pd
-pd_new_all <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/percent_density_GWAS_tidy_outcome.txt.gz") %>% select(SNP, beta_adj = beta.outcome, pval_adj = pval.outcome)
-pd_unadj_all <- vroom("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/01_Data/GWAS_tidy/percent_density_unadj_GWAS_tidy_outcome.txt.gz")%>% select(SNP, beta_unadj = beta.outcome, pval_unadj = pval.outcome)
-
-pd_merged<- full_join(pd_new_all, pd_unadj_all) %>% 
-            filter(grepl("rs", SNP)) %>% 
-            mutate(adj = ifelse(SNP %in% pd_new$SNP, 1, 0)) %>% 
-            mutate(unadj = ifelse(SNP %in% pd_unadj$SNP, 1, 0)) %>% 
-            filter(adj==1 | unadj==1)
-write_tsv(pd_merged, paste0(results_path, current_trait_category, "/compare_PD_adj_unadj.tsv"))
-pd_merged<- read_tsv(paste0(results_path, current_trait_category, "/compare_PD_adj_unadj.tsv"))
-
-```
 
 

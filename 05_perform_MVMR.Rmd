@@ -1,6 +1,8 @@
 ---
-title: "MVMR analysis of BMI and mediators to BC"
+title: "Multivariable MR of (1) BMIs/menarche to MD and childBMI+MD to BC"
 output: html_document
+author: "Marina Vabistsevits"
+date: "`r Sys.Date()`"
 ---
 
 ```{r setup, include=FALSE}
@@ -57,12 +59,7 @@ dim(adult_bmi_gwas)
 ```
 
 
-
-
-
-
-# Run MVMR for each mediator separately in a loop
-# can do by mediators category 
+# Run MVMR for each MD separately in a loop
 
 ```{r}
 # specify group to process if data is in textfiles
@@ -70,13 +67,10 @@ current_trait_category <- "md_unadj"
 mediators <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(!is.na(full_data))  %>%  pull(full_data)
 ```
 
-# Massive for-loop to:
-## For a selected breast cancer outcome (load)
-## Iterate over all mediators in current_trait_category, and:
-## Run MVMR 1: Childhood BMI and Adult BMI as exposures, Mediator as outcome
-## Run MVMR 2: Childhood BMI and Mediator as exposures, Breast cancer as outcome
-## Run MVMR 3: Adult BMI     and Mediator as exposures, Breast cancer as outcome
-## Run MVMR 4: Childhood BMI, Adult BMI, and Mediator as exposures, Breast cancer as outcome
+For a selected breast cancer outcome,
+Iterate over all traits in current_trait_category, and:
+-  Run MVMR 1: Childhood BMI and Adult BMI as exposures, [MD phenotypes] as outcome
+-  Run MVMR 2: Childhood BMI and each [MD phenotype] as exposures, Breast cancer as outcome
 
 ```{r message= F}
 results_path_sub <-   paste0(results_path, current_trait_category, "/")
@@ -85,8 +79,6 @@ run_sens = T
 
 run_analysis_1 = F
 run_analysis_2 = T
-run_analysis_3 = F
-run_analysis_4 = F
 
 for (j in 1:length(bcac_lookup$trait)){
 
@@ -311,7 +303,6 @@ for (j in 1:length(bcac_lookup$trait)){
       
         
         # find phenotypic correlation value in table and estimate gencov
-       
         print("No phenotypic correlation available, going to use gencov=0 ")
         gen_cov <- 0
         
@@ -332,232 +323,12 @@ for (j in 1:length(bcac_lookup$trait)){
       }  
       rm(exposure_list, full_gwas_list, exposure_dat, outcome_dat)
     }
-    #
-    #
-    #
-    # Analysis 3. Multivariable MR: Adult BMI and Mediator as exposures, Breast cancer as outcome
-    if (run_analysis_3) {
-      print("=========== Running analysis 3 =============")
-      
-      # put all exposure and full gwas dat into lists
-      exposure_list <- list(adult_bmi_exp, exposure_mediator)
-      
-      
-      if (format == "mediator_mrbase"){
-        outcome_mediator <- extract_outcome_data(snps = exposure_list %>% 
-                                                purrr::reduce(bind_rows) %>% pull(SNP), 
-                                         outcomes = mediators[i])
-        outcome_mediator$outcome <- mediator_name
-      }
-      
-      full_gwas_list <- list(adult_bmi_gwas, outcome_mediator)
-      
-      # create exposure_dat format
-      exposure_dat <- get_mv_exposures(exposure_list, full_gwas_list, clump_exposures = T) 
-    
-      #Next, also extract those SNPs from the outcome.
-       if (outcome_source == 'outcome_mrbase'){
-        outcome_dat <- extract_outcome_data(exposure_dat$SNP,
-                                            breast_cancer_data)
-      } else if (outcome_source == 'outcome_textfile') {
-        outcome_dat <- breast_cancer_data %>%  
-                          filter(SNP %in% exposure_dat$SNP)
-      }
-      
-      #Once the data has been obtained, harmonise so that all are on the same reference allele.
-      mvdat <- mv_harmonise_data(exposure_dat, outcome_dat)
-      
-      #Finally, perform the multivariable MR analysis
-      res <- mv_multiple(mvdat)
-      
-      mv_res<- res$result %>%
-                    split_outcome() %>% 
-                    separate(outcome, "outcome", sep="[(]") %>% 
-                    generate_odds_ratios() %>% 
-                    select(-id.exposure, -id.outcome)%>% 
-                    mutate(outcome = outcome_trait,
-                           mediator = mediator_file_name)
-      
-      write_tsv(mv_res, paste0(mvmr_dir, "mvmr_adultBMI-", mediator_file_name ,"-to-BCAC_", outcome_trait_name,"_using_2SMR.tsv"))
-    
-      ## sensitivity analysis
-      if (run_sens) {
-        # create MVMR package input
-        if (outcome_source == 'outcome_mrbase'){
-          # specify mrbase id
-          mvmr_input <- make_mvmr_input(exposure_dat, outcome.id.mrbase = breast_cancer_data)
-         } else if (outcome_source == 'outcome_textfile') {
-          # specify text file
-         mvmr_input <- make_mvmr_input(exposure_dat,  outcome.data = breast_cancer_data)
-        }
-        
-        # format data to be in MVMR package-compatible df
-        mvmr_out <- format_mvmr(BXGs = mvmr_input$XGs %>% select(contains("beta")),  # exposure betas
-                                BYG = mvmr_input$YG$beta.outcome,                     # outcome beta
-                                seBXGs = mvmr_input$XGs %>% select(contains("se")),  # exposure SEs
-                                seBYG = mvmr_input$YG$se.outcome,                     # outcome SEs
-                                RSID = mvmr_input$XGs$SNP)                            # SNPs
-    
-      #  estimate causal effects using method in MVMR package
-        mvmr_res <-ivw_mvmr(r_input=mvmr_out) %>% 
-                   tidy_mvmr_output() %>% 
-                   mutate(exposure = mvmr_input$exposures,
-                          outcome = outcome_trait_name)
-        # not saving mvmr output from mvmr package- it is the same as from 2smr
-        #write_tsv(mvmr_res, paste0(mvmr_dir, "mvmr_adultBMI-", mediator_file_name ,"-to-BCAC_", outcome_trait_name,"_using_MVMR.tsv"))
-        
-      
-        
-        # find phenotypic correlation value in table and estimate gencov
-        if (mediator_name %in% phenocor_matrix$mediator){
-          print(paste0("Using phenocor for calculating Fst"))
-          phenocor_values <- filter(phenocor_matrix, mediator == mediator_name)
-          pheno_mat <- matrix(c(1, phenocor_values$adult_bmi,
-                            phenocor_values$adult_bmi, 1), nrow=2, ncol=2)
-          colnames(pheno_mat) = rownames(pheno_mat) = c("Adult body size", mediator_name)
-          print(pheno_mat)
-          #extract SE matrix ### NB use MVMR_OUT now
-          se_matrix <- mvmr_out %>% as_tibble() %>% select(contains("sebetaX")) %>% as.data.frame()
-      
-          #estimate gencov
-          gen_cov <- phenocov_mvmr(Pcov = as.matrix(pheno_mat), seBXGs = se_matrix)
-        } else{
-          print("No phenotypic correlation available, going to use gencov=0 ")
-          gen_cov <- 0
-        }
-        
-        #Test for weak instruments
-        sres <- strength_mvmr(r_input=mvmr_out, gencov=gen_cov)
-        colnames(sres) = paste(c("Adult body size", mediator_name), "(Fst)")
-        print(sres)
-        
-        #Test for horizontal pleiotropy
-        pres <- pleiotropy_mvmr(r_input=mvmr_out, gencov=gen_cov)
-        
-        mvmr_sens_df <- sres
-        mvmr_sens_df$Qstat <- pres$Qstat
-        mvmr_sens_df$Qpval <- pres$Qpval
-        
-        write_tsv(mvmr_sens_df, paste0(mvmr_dir, "mvmr_sens_adultBMI-", mediator_file_name ,"-to-BCAC_", outcome_trait_name,".tsv"))
-      } 
-      rm(exposure_list, full_gwas_list, exposure_dat, outcome_dat)
-    }
-    
-    #
-    #
-    #
-    
-   # Analysis 4. Multivariable MR: Childhood BMI, Adult BMI, and Mediator as exposures, Breast cancer as outcome
-  
-    if (run_analysis_4) {
-    print("=========== Running analysis 4 =============")
-    
-      exposure_list <- list(early_bmi_exp, adult_bmi_exp, exposure_mediator)
-      if (format == "mediator_mrbase"){
-        outcome_mediator <- extract_outcome_data(snps = exposure_list %>% purrr::reduce(bind_rows)  %>% pull(SNP), 
-                                         outcomes = mediators[i])
-        outcome_mediator$outcome <- mediator_name
-      }
-      
-      full_gwas_list<- list(early_bmi_gwas, adult_bmi_gwas,  outcome_mediator)
-      
-      # create exposure_dat format
-      exposure_dat <- get_mv_exposures(exposure_list, full_gwas_list, clump_exposures = T)
-    
-      #Next, also extract those SNPs from the outcome.
-       if (outcome_source == 'outcome_mrbase'){
-        outcome_dat <- extract_outcome_data(exposure_dat$SNP,
-                                            breast_cancer_data)
-      } else if (outcome_source == 'outcome_textfile') {
-       outcome_dat <- breast_cancer_data %>%  
-                          filter(SNP %in% exposure_dat$SNP)
-      }
-      
-      #Once the data has been obtained, harmonise so that all are on the same reference allele.
-      mvdat <- mv_harmonise_data(exposure_dat, outcome_dat)
-      
-      #Finally, perform the multivariable MR analysis
-      res <- mv_multiple(mvdat)
-      
-      mv_3exp<- res$result %>%
-                    split_outcome() %>% 
-                    separate(outcome, "outcome", sep="[(]") %>% 
-                    generate_odds_ratios() %>% 
-                    select(-id.exposure, -id.outcome)%>% 
-                    mutate(outcome = outcome_trait,
-                           mediator = mediator_file_name)
-      
-      write_tsv(mv_3exp, paste0(mvmr_dir, "mvmr_adultBMIearlyBMI-", mediator_file_name,"-to-BCAC_", outcome_trait_name,"_using_2SMR.tsv"))
-      
-      
-      ## sensitivity analysis
-      if (run_sens) {
-        # create MVMR package input
-        if (outcome_source == 'outcome_mrbase'){
-          # specify mrbase id
-          mvmr_input <- make_mvmr_input(exposure_dat, outcome.id.mrbase = breast_cancer_data)
-         } else if (outcome_source == 'outcome_textfile') {
-          # specify text file
-         mvmr_input <- make_mvmr_input(exposure_dat,  outcome.data = breast_cancer_data)
-        }
-        
-        # format data to be in MVMR package-compatiable df
-        mvmr_out <- format_mvmr(BXGs = mvmr_input$XGs %>% select(contains("beta")),  # exposure betas
-                                BYG = mvmr_input$YG$beta.outcome,                        # outcome beta
-                                seBXGs = mvmr_input$XGs %>% select(contains("se")),      # exposure SEs
-                                seBYG = mvmr_input$YG$se.outcome,                        # outcome SEs
-                                RSID = mvmr_input$XGs$SNP)                               # SNPs
-    
-        # find phenotypic correlation value in table and estimate gencov
-        if (mediator_name %in% phenocor_matrix$mediator){
-          print(paste0("Using phenocor for calculating Fst"))
-          
-          
-          y <- phenocor_matrix %>% filter(mediator %in% c(mediator_name, "Childhood body size", "Adult body size")) %>% 
-              select(mediator, adult_bmi, early_bmi) %>% # order matters
-              mutate(mediator =ifelse(mediator == mediator_name, 'mediator', mediator)) %>% 
-              arrange(mediator) %>%  # always bottom row
-              column_to_rownames('mediator') 
-            
-          pheno_mat <- y %>% mutate(mediator = c(as.vector(as.matrix(y['mediator',])), 1)) %>% 
-                             rename("Childhood body size" = "early_bmi", "Adult body size" = "adult_bmi")
-    
-          print(pheno_mat)
-          
-          #extract SE matrixm ### NB USE MVMR_OUT now
-          se_matrix <- mvmr_out %>% as_tibble() %>% select(contains("sebetaX")) %>% as.data.frame()
-      
-          #estimate gencov
-          gen_cov <- phenocov_mvmr(Pcov = as.matrix(pheno_mat), seBXGs = se_matrix)
-        } else{
-          gen_cov <- 0
-        }
-        
-          #Test for weak instruments
-        sres <- strength_mvmr(r_input=mvmr_out, gencov=gen_cov)
-        colnames(sres) = paste(mvmr_input$exposures, "(Fst)")
-        print(sres)
-        
-        #Test for horizontal pleiotropy
-        pres <- pleiotropy_mvmr(r_input=mvmr_out, gencov=gen_cov)
-        
-        mvmr_sens_df <- sres
-        mvmr_sens_df$Qstat <- pres$Qstat
-        mvmr_sens_df$Qpval <- pres$Qpval
-        
-        write_tsv(mvmr_sens_df, paste0(mvmr_dir, "mvmr_sens_adultBMI-earlyBMI-", mediator_file_name ,"-to-BCAC_", outcome_trait_name,".tsv"))
-      }
-      
-      rm(exposure_list, outcome_mediator, full_gwas_list, exposure_dat, outcome_dat)
-    }
-    
-    
-    
     
     print(paste0("Finished analyses for ", mediators[i]))
   }
 }
 ```
+
 
 
 # Merge the MVMR results into one table for each trait category
@@ -609,6 +380,7 @@ current_trait_category <- "md_unadj"
 mvmr_files <- list.files(path = paste0(results_path, current_trait_category, '/mvmr'), full.names = T)
 # drop sensitivity files and BMI
 mvmr_files <- mvmr_files[grepl('sens', mvmr_files)]
+mvmr_files <- mvmr_files[!grepl('BRCA', mvmr_files, ignore.case = T)]
 
 # make sure this dir exists : 02_Results/sleep_trairs/mvmr/merged
 mvmr_merged_dir <- paste0(results_path_sub, "mvmr/merged/")
@@ -617,7 +389,6 @@ if(!dir.exists(mvmr_merged_dir_w_backslash)){ system(paste("mkdir -p", mvmr_merg
 
 
 # this is a list of MVMR types to cycle through
-#mvmr_types <- c( "mvmr_BMIs-", "mvmr_earlyBMI-", "mvmr_adultBMI-", "mvmr_adultBMIearlyBMI-")
 mvmr_types <- c("mvmr_sens_BMIs-", "mvmr_sens_earlyBMI-")
 
 # for each mvmr type, load all indiv trait files, merge, save
