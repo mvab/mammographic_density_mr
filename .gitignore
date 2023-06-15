@@ -51,3 +51,5 @@ rsconnect/
 # files
 set_paths.R
 testing_MD_instruments_local_file.R
+figures/*
+various_exploratory_scripts/*
