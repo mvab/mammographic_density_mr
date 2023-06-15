@@ -43,7 +43,7 @@ pal<-c(unname(yarrr::piratepal("pony")))
 
 ```{r}
 # previous results
-dat_BMI <-  read_tsv("/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project2/early-bmi-breast-cancer-mr/figures/plotting_data/fig4.tsv")
+dat_BMI <-  read_tsv("/Users/USERID/OneDrive - University of Bristol/Documents - OneDrive/Mini-project2/early-bmi-breast-cancer-mr/figures/plotting_data/fig4.tsv")
 
 pp<-ggplot(dat_BMI, aes(y=reorder(direct, -or), x=or, label=outcome, colour=text_col)) +
   geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=.3) +
