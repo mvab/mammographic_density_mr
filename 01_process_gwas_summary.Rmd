@@ -1,6 +1,7 @@
 ---
-title: "Format data and extract instruments"
+title: "Format GWAS sdata and extract instruments"
 output: pdf_document
+author: "Marina Vabistsevits"
 ---
 
 ```{r setup, include=FALSE}
@@ -134,7 +135,7 @@ extract_tophits_wo_clump <- function(outcome_gwas){
 
 ```{r}
 # specify the source of full summary stats GWAS file
-data_source <- "shared_subset" # ieu_gwas_pipeline_v2
+data_source <- "shared_subset" 
 trait_cat = 'md_unadj'
 traits <- data_lookup %>% filter(source == data_source) %>% filter(trait_category == trait_cat) %>%  pull(trait)
 ```

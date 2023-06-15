@@ -1,6 +1,7 @@
 ---
-title: "R Notebook"
+title: "Proceess MD GWAS data v1 (adjusted for BMI)"
 output: html_notebook
+author: "Marina Vabistsevits"
 ---
 
 
