@@ -126,7 +126,7 @@ mr_leaveoneout_plot_manual <- function (leaveoneout_results)
 
 
 mr_forest_plot_outliers <- function (d,  outliers_list, outliers_colour, method) {
-    # this is a modified version of 2SMR function 
+    # this is a modified version of TwpSampleMR function for single SNP forest plot
 
      requireNamespace("ggplot2", quietly = TRUE)
      requireNamespace("plyr", quietly = TRUE)
@@ -171,15 +171,15 @@ mr_forest_plot_outliers <- function (d,  outliers_list, outliers_colour, method)
                       axis.title.x = ggplot2::element_text(size = 8)) + 
        ggplot2::labs(y = "", 
                      subtitle = paste0("Single SNP forest plot with ",method," outliers"),
-                     x = paste0("MR effect size for\n'", 
-                                        d$exposure[1], "' on '", d$outcome[1], "'"))
+                     x = paste0("Odds ratio for\n", 
+                                        d$exposure[1], " effect on ", d$outcome[1]))
      return(out)
    
   
 }
 
 mr_forest_plot_clusters <- function (d,  outliers_df, outliers_colour_list) {
-  # this is a modified version of 2SMR function 
+  # this is a modified version of TwpSampleMR function for single SNP forest plot
   
   requireNamespace("ggplot2", quietly = TRUE)
   requireNamespace("plyr", quietly = TRUE)
@@ -223,8 +223,8 @@ mr_forest_plot_clusters <- function (d,  outliers_df, outliers_colour_list) {
                    axis.title.x = ggplot2::element_text(size = 8)) + 
     ggplot2::labs(y = "", 
                   subtitle = "Single SNP forest plot with MR-Clust clusters",
-                  x = paste0("MR effect size for\n'", 
-                                     d$exposure[1], "' on '", d$outcome[1], "'"))
+                  x = paste0("Odds ratio for\n", 
+                                     d$exposure[1], " effect on ", d$outcome[1]))
   return(list(p=out,
               dat = d))
   
