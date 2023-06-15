@@ -27,5 +27,3 @@ Non-dense area,md_bcac,BCAC_NDA_MetaResultswInfo_20210609.txt,BCAC_NDA_GWAS_tidy
 Percent density,md_bcac,BCAC_PMD_MetaResultswInfo_20210609.txt,BCAC_PMD_GWAS_tidy_outcome.txt.gz,BCAC_PMD_tophits.tsv,BCAC_PMD,bcac_md,tsv,NA,
 Fat mass,antro,23100_irnt.gwas.imputed_v3.female.tsv.bgz,fat_mass_GWAS_tidy_outcome.txt.gz,fat_mass_tophits.tsv,fat_mass,ukb_neale,tsv,NA,
 Fat free mass,antro,23101_irnt.gwas.imputed_v3.female.tsv.bgz,fatfree_mass_GWAS_tidy_outcome.txt.gz,fatfree_mass_tophits.tsv,fatfree_mass,ukb_neale,tsv,NA,
-HDL cholesterol,test,30760_irnt.gwas.imputed_v3.female.varorder.tsv.bgz,hdl_cholesterol_GWAS_tidy_outcome.txt.gz,hdl_cholesterol_tophits.tsv,hdl_cholesterol,ukb_neale,tsv,NA,
-Snoring,test,1210.gwas.imputed_v3.female.tsv.bgz,snoring_GWAS_tidy_outcome.txt.gz,snoring_tophits.tsv,snoring,ukb_neale,tsv,NA,
