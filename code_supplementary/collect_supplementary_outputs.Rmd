@@ -1,5 +1,5 @@
 ---
-title: "supl data collect"
+title: "Collect all results tables for Supplementary matarials"
 author: "Marina Vabistsevits"
 date: "`r Sys.Date()`"
 output: html_document
