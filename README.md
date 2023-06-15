@@ -2,11 +2,25 @@
 ## Mammographic density / BMI / breast cancer MR project
 
 
+ **This README contains:**
+
+- e-poster summarising the project research (13 June 2023)
+- project background and aims
+- outline of the project work/code stored in this repo
+
+
+
+### Poster presented at ESHG 2023
+
+<img src="poster_ESHG.png" width="1000"> 
+
+
 ### Background 
 
 
  to add
-
+ 
+ 
 
 ### This repository
 
@@ -48,6 +62,12 @@ Main analysis scripts and metadata (see details below):
 `01_process_gwas_summary.Rmd` is required for processing data that comes as text files (i.e. GWAS summary stats) from the IEU GWAS pipeline or other sources. This script has to be run to convert raw data into `outcome` data frames and to extract instruments from each GWAS (in `exposure` format) and save them to be used directly in MR analysis in subsequent scripts. The names of raw files, tidy outcome data frames, and exposure instruments are all get saved in the metadata file `data_lookup.csv` upon generation. (NB the metadata file has to contain raw file names and the desired output prefixes before running this Rmd).
 
 3. Rmd `02_mr_BMI_to_MD.Rmd` runs univariable MR of Childhood and Adult body size on MD (a version of MD data to use is specified via metadata file `data_lookup.csv`). The code has to be run interactively per trait category. The results merged by trait category will be stored in `Results` directory outside the codebase. 
+
+
+4. Rmd `02_mr_mvmr_traits_to_MD.Rmd`
+
+  TODO + possibly move and rename?
+
 
 
 4. Rmd `03_mr_mediators-to-BC.Rmd` is used to run univariable MR of all mediators (and BMI) on Breast cancer (`ieu-a-1126`). The code has to be run interactively per trait category, the results are stored in `Results` outside the codebase. After the analysis, forest plots can be created for each trait category. To recreate the plots, don't need to rerun the full analysis, can just read in the merged files. The plots will be saved in the codebase in `figures/`. 
