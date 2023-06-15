@@ -11,7 +11,7 @@ set_paths<- function(currently_working_env){
   
   } else if (currently_working_env == "local"){
     ## local data paths
-    local_path <<-"/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project4/" #### CHANGE ME
+    local_path <<-"your/local/path/" #### CHANGE ME
     data_path <<-           paste0(local_path,"01_Data/") 
     data_path_gwas_raw <<-  paste0(local_path,"01_Data/GWAS_raw/") 
     data_path_gwas <<-      paste0(local_path,"01_Data/GWAS_tidy/") 
