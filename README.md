@@ -4,7 +4,7 @@
 
 This repository contains code and materials from a research project done as a part of PhD programme at the University of Bristol, MRC-IEU.
 
-Pre-print: [link to be added]()
+Pre-print: [https://www.medrxiv.org/content/10.1101/2023.09.01.23294765v1](https://www.medrxiv.org/content/10.1101/2023.09.01.23294765v1)
 
 
  **This README contains:**
