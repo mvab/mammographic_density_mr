@@ -18,6 +18,22 @@ tidy_pvals<-function(df){
            pval=as.numeric(pval))
 }
 
+extract_outcome_data_custom <- function(exposure_dat, breast_cancer_data, outcome_source){
+  # function to extract instrument from a specified outcome
+  
+  if (outcome_source == "outcome_textfile"){
+    out <- breast_cancer_data %>%
+      filter(SNP %in% exposure_dat$SNP)
+    
+  } else if (outcome_source == "outcome_mrbase"){
+    
+    out <- extract_outcome_data(
+      snps = exposure_dat$SNP,
+      outcome = breast_cancer_data) 
+  }
+  return(out)
+}
+
 
 mr_scatter_plot_manual <- function (mr_results, dat) 
 {
