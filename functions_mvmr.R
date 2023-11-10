@@ -18,7 +18,7 @@ get_mv_exposures <- function(exposure_list, full_gwas_list, clump_exposures=FALS
     temp <- exposures
     temp$id.exposure <- 1
     temp <- clump_data(temp)
-    #temp <- clump_data_local(temp, local_path)
+    #temp <- clump_data_local(temp)
     exposures <- filter(exposures, SNP %in% temp$SNP)
   }
   
@@ -136,6 +136,21 @@ tidy_mvmr_output <- function(mvmr_res) {
 
 
 
-
+clump_data_local <- function(dat, clump_r2 = 0.001, path = "/Users/ny19205/OneDrive - University of Bristol/Documents - OneDrive/Mini-project2/"){
+  #https://github.com/MRCIEU/TwoSampleMR/issues/173  
+  dat %>% 
+    rename(rsid = SNP, 
+           pval = pval.exposure,
+           id = id.exposure) %>% 
+    ieugwasr::ld_clump(
+      dat = .,
+      clump_r2 = clump_r2,
+      plink_bin = genetics.binaRies::get_plink_binary(),
+      bfile = paste0(path, "01_Data/reference/1kg.v3/EUR")) %>% 
+    rename(SNP = rsid, 
+           pval.exposure = pval,
+           id.exposure = id) 
+  
+}
 
 
