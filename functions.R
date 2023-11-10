@@ -141,7 +141,7 @@ mr_leaveoneout_plot_manual <- function (leaveoneout_results)
 
 
 
-mr_forest_plot_outliers <- function (d,  outliers_list, outliers_colour, method) {
+mr_forest_plot_outliers <- function (d,  outliers_list, outliers_colour, method, or=F, snp_order=NULL) {
     # this is a modified version of TwpSampleMR function for single SNP forest plot
 
      requireNamespace("ggplot2", quietly = TRUE)
@@ -153,6 +153,7 @@ mr_forest_plot_outliers <- function (d,  outliers_list, outliers_colour, method)
      levels(d$SNP)[levels(d$SNP) == "All - Inverse variance weighted"] <- "All - IVW"
      levels(d$SNP)[levels(d$SNP) == "All - MR Egger"] <- "All - Egger"
      am <- grep("All|Outlier", d$SNP, value = TRUE)
+     measure = "Effect size"
      d$up <- d$b + 1.96 * d$se
      d$lo <- d$b - 1.96 * d$se
      d$tot <- 0.01
@@ -167,8 +168,19 @@ mr_forest_plot_outliers <- function (d,  outliers_list, outliers_colour, method)
      d$lo[nrow(d) - 1] <- NA
      d$SNP <- ordered(d$SNP, levels = c(am, "", nom))
      xint <- 0
-
      
+     if (!is.null(snp_order)){
+       d$SNP <- ordered(d$SNP, levels = c(am, "", snp_order))
+     }
+     
+     #if (or){
+     #  measure <- "Odds ratio"
+     #  d$b <- exp(d$b)
+     #  d$up <- exp(d$up)
+     #  d$lo <-exp(d$lo)
+     #  
+     #}
+
      d <- d %>% mutate(outlier = ifelse(SNP %in% outliers_list, T, F))
      
      out <- ggplot2::ggplot(d, ggplot2::aes(y = SNP, x = b)) + 
@@ -181,14 +193,16 @@ mr_forest_plot_outliers <- function (d,  outliers_list, outliers_colour, method)
        ggplot2::scale_colour_manual(values = c('FALSE' = "black",  'TRUE' = outliers_colour)) +
        ggplot2::scale_size_manual(values = c(0.3,  1)) + 
        ggplot2::theme_bw()+
+       xlim(-2.3,3.1)+ # tmp for supl
        ggplot2::theme(legend.position = "none", 
                       axis.text.y = ggplot2::element_text(size = 8), 
                       axis.ticks.y = ggplot2::element_line(size = 0), 
                       axis.title.x = ggplot2::element_text(size = 8)) + 
        ggplot2::labs(y = "", 
                      subtitle = paste0("Single SNP forest plot with ",method," outliers"),
-                     x = paste0("Odds ratio for\n", 
+                     x = paste0(measure, " for\n", 
                                         d$exposure[1], " effect on ", d$outcome[1]))
+      
      return(out)
    
   
@@ -239,7 +253,7 @@ mr_forest_plot_clusters <- function (d,  outliers_df, outliers_colour_list) {
                    axis.title.x = ggplot2::element_text(size = 8)) + 
     ggplot2::labs(y = "", 
                   subtitle = "Single SNP forest plot with MR-Clust clusters",
-                  x = paste0("Odds ratio for\n", 
+                  x = paste0("Effect size for\n", 
                                      d$exposure[1], " effect on ", d$outcome[1]))
   return(list(p=out,
               dat = d))
