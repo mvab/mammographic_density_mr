@@ -231,7 +231,7 @@ if (current_trait_category == "md_unadj" ) {
                  "S14" = mvmr_cBMI_md_to_bc_sens,
                  "S15" = total_data, 
                  "S16" = mrpresso,
-                 "S17" = radial,
+                 "S17" = radial, ######### NB - this also has a posthoc maually added DA_unadj_radial_supl_subtypesBC.tsv from subtype radialMR
                  "S18" = cluster,
                  "S19" = phewas_da,
                  "S20" = phewas_nda,
@@ -275,9 +275,9 @@ if (current_trait_category == "md" ) {
 current_trait_category <- "md_unadj" 
 
 # SNP to gene
-genes_da<-read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "DA_unadj", "_snps_clusters_gene_annotation.tsv")) 
-genes_nda<-read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "NDA_unadj", "_snps_clusters_gene_annotation.tsv")) 
-genes_pd<-read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "PD_unadj", "_snps_clusters_gene_annotation.tsv")) 
+genes_da<-read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "DA_unadj", "_snps_clusters_genes_long.tsv")) 
+genes_nda<-read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "NDA_unadj", "_snps_clusters_genes_long.tsv"))
+genes_pd<-read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "PD_unadj", "_snps_clusters_genes_long.tsv")) 
 
 # gene to pathways
 pathways_da <- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", "DA_unadj", "_pathways_by_clusters_tidy.tsv")) 
