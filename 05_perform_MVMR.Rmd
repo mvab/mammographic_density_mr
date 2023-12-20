@@ -112,10 +112,12 @@ for (j in 1:length(bcac_lookup$trait)){
       tophits_file <- data_lookup %>% filter(trait_category == current_trait_category) %>% filter(full_data == mediators[i]) %>% pull(tophits_data)
       exposure_mediator <- vroom(paste0(data_path_tophits, tophits_file), 
                                  col_types = cols(effect_allele.exposure = col_character())) # to avoid T being read as TRUE
-                          
-                        
-        
-      # load full GWAS data (outcomes) and subset to exposure SNPs
+         
+       # adhoc test od DA cluster_2 only                  
+       #exposure_mediator <- exposure_mediator %>%  filter(SNP %in% c('rs1503613', "rs17196808","rs11877925","rs10034692",
+       #                                                              "rs12365491","rs28763893","rs2642278","rs233174",
+       #                                                              "rs3819405","rs7555006"))
+      #",load full GWAS data (outcomes) and subset to exposure SNPs
       outcome_mediator <- vroom(paste0(data_path_gwas, mediators[i]))
   
   
@@ -267,7 +269,8 @@ for (j in 1:length(bcac_lookup$trait)){
                            mediator = mediator_file_name)
         
       write_tsv(mv_res, paste0(mvmr_dir, "mvmr_earlyBMI-", mediator_file_name ,"-to-BCAC_", outcome_trait_name,"_using_2SMR.tsv"))
-    
+      #write_tsv(mv_res, paste0(mvmr_dir, "mvmr_earlyBMI-", mediator_file_name ,"-to-BCAC_", outcome_trait_name,"_using_2SMR_DAcluster2.tsv")) # tmp for one cluster
+
       ## sensitivity analysis
       
       if (run_sens) {
