@@ -152,7 +152,7 @@ for (i in 1:9 ){
                                                                                 "All - Weighted median", "Outlier corrected - IVW")))) %>% 
                                                   arrange(SNP)
                             
-  forest_radial <- mr_forest_plot_outliers(res_outliers_radial,  outliers_list=outliers_list, outliers_colour = "orange", method = "Radial-MR", snp_order = rev(SNPorder) )
+  forest_radial <- mr_forest_plot_outliers(res_outliers_radial,  outliers_list=outliers_list, outliers_colour = "orange", method = "", snp_order = rev(SNPorder) )
   plots[[i]]<- forest_radial
   
   ggsave(plot=forest_radial, 
@@ -171,7 +171,7 @@ radial_results<- radial_results %>%
           TwoSampleMR::generate_odds_ratios() %>% select(-lo_ci, -up_ci) %>% 
            mutate_at(vars(starts_with("or")), funs(ifelse(grepl("rs", SNP), NA, . )))
 
-write_tsv(radial_results, paste0(results_path, dir, "/presso_radial/", exp_code,"_radial_supl_subtypesBC.tsv"))
+write_tsv(radial_results, paste0(results_path, dir, "/presso_radial/", exp_code,"_radial_supl_subtypesBC.tsv")) # manually added to Supl data 17
 
 
 ```
@@ -180,14 +180,14 @@ write_tsv(radial_results, paste0(results_path, dir, "/presso_radial/", exp_code,
 library(cowplot)
 
 radial_plots <-
-  plot_grid(plotlist = plots[1:9],
+  plot_grid(plotlist = plots[c(1,4,2,3,5:9)],
            labels = "auto",
            label_size = 12,
-          axis = "t", ncol=3) 
+          axis = "t", ncol=2) 
 
 ggsave(plot=radial_plots, 
-      height=12, width=12, scale=1.5, dpi=300, 
-      filename=paste0(results_path, dir, "/presso_radial/subtypes_", exp_code,"_snps_outliers_forest_radial_ALL_ordered.png"))
+      height=16, width=8, scale=1, dpi=300, 
+      filename=paste0(results_path, dir, "/presso_radial/subtypes_", exp_code,"_snps_outliers_forest_radial_ALL_ordered2.png"))
 
 
 
