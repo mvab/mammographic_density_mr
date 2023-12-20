@@ -13,16 +13,16 @@ library(vroom)
 library(tidyr)
 library(tibble)
 library(dplyr)
+library(ggplot2)
 
-library(gprofiler2)
-library(enrichR)
-library(httr)
-library(jsonlite)
-library(GenomicRanges)
-library(biomaRt)
+#library(gprofiler2)
+#library(httr)
+#library(jsonlite)
+#library(GenomicRanges)
+#library(biomaRt)
+
 library(ReactomeContentService4R)
-
-
+library(enrichR)
 library(eulerr)
 ```
 
@@ -34,8 +34,8 @@ source("set_paths.R")
 set_paths(currently_working_env)
 
 # metafile
-data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
-bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) 
+#data_lookup<-read_csv(paste0("metadata/data_lookup.csv")) 
+#bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) 
 
 # load functions
 source("functions.R")
@@ -45,7 +45,7 @@ source("functions.R")
 
 ```{r}
 # dense
-exp_code <- "PD_unadj" 
+exp_code <- "NDA_unadj" 
 cluster_df <-read_tsv(paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.tsv"))
 
 ```
@@ -57,89 +57,36 @@ Run a FUMA job with the list of SNP (input file from 06_instruments_review.Rmd f
 ## FUMA
 
 ```{r}
-# read FUMA snp-gene mapping
-if (!grepl("all", exp_code)){exp_code_fuma <- paste0(exp_code, "_all")} else{ exp_code_fuma <- exp_code}
-snpstxt <- read_tsv(paste0(results_path, "FUMA/FUMA_", exp_code_fuma, "/snps.txt")) # we FUMA-s all gws SNPs, but leftjoin will keep only what is needed if we are workign with a subset
+# read FUMA snp-gene mapping 
 
-cluster_df <-cluster_df %>% left_join(snpstxt %>% dplyr::select(rsID, geneFUMA=nearestGene, uniqID), by = "rsID") 
+# we FUMA-d all gws SNPs, but left_join with cluster_df will keep only what is needed if we are working with a subset
+if (!grepl("all", exp_code)){exp_code_fuma <- paste0(exp_code, "_all_eQTL")} else{ exp_code_fuma <- exp_code}
 
-cluster_df_genes<- cluster_df %>% dplyr::select(cluster, geneFUMA) %>% distinct()
-cluster_df_genes %>% count(geneFUMA,sort=T)
+# get pos mapping
+snps <- read_tsv(paste0(results_path, "FUMA/FUMA_", exp_code_fuma, "/snps.txt")) 
+map1 <- cluster_df %>% left_join(snps %>% dplyr::select(uniqID, rsID, nearestGene,r2,  eqtlMapFilt)) %>% distinct() 
+
+# get eQTL mapping
+eqtls <- read_tsv(paste0(results_path, "FUMA/FUMA_", exp_code_fuma, "/eqtl.txt")) 
+map2 <- map1 %>% left_join(eqtls %>% dplyr::select(uniqID, tissue,FDR, gene_eQTL = symbol)%>% distinct() , by  ='uniqID')
+
+write_tsv(map2, paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_genes_wide.tsv")) # 
+
 ```
-
-## gProfiler
 
 ```{r}
-# map to genes with gProfiler:
-library(gprofiler2)
-grof_res <- gprofiler2::gsnpense(query =unique(cluster_df$rsID)) %>% 
-            dplyr::select(rsID=rs_id, gprofiler_gene = gene_names) %>% distinct()
+# transformi g int long format-- remember to select MD pheno appropriate cluster direction annotation!
 
-# just check
-cluster_df_tmp<- left_join(cluster_df, grof_res, by ="rsID")
-cluster_df_genes2<- cluster_df_tmp %>% 
-                    dplyr::select(cluster, geneFUMA, gprofiler_gene) %>% distinct()
-```
+map2<- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_genes_wide.tsv"))
 
-
-## eQTL catalogue
-```{r}
-### Querying eQTL catalogue for variants
-
-eqtl1 <- eqtl_for_snps(unique(cluster_df$rsID))
-
-eqtl1_sub <- eqtl1 %>% dplyr::select(rsid, hgnc_symbol) %>% distinct()
-
-print(paste("mapped", length(unique(eqtl1_sub$rsid)), "SNPs out of", length(unique(cluster_df$rsID))))
-
-eqtl1_sub %>% count(rsid, sort=T) %>% View()
-eqtl1 %>% count(qtl_group, sort=T) %>% View()
-
-tissues_keep <-c( "Adipose_Subcutaneous" ,"Adipose_Visceral_Omentum" ,
-                 "Breast_Mammary_Tissue" ) # GTEx V8 only
-
-#eqtl1 %>% dplyr::select(qtl_group, study_id) %>% filter(qtl_group %in% tissues_keep) %>% distinct() %>%  View()
-
-
-eqtl1_sub_selected_tissues <- eqtl1 %>% 
-                              filter(qtl_group %in% tissues_keep) %>% 
-                              dplyr::select(rsid, eQTL_gene = hgnc_symbol,qtl_group, median_tpm, pvalue) %>% 
-                              distinct() %>% 
-                              filter(median_tpm > 0) %>% 
-                              mutate(eQTL_gene = ifelse(eQTL_gene=="", NA, eQTL_gene)) %>% 
-                              filter(!is.na(eQTL_gene))
-
-
-print(paste("mapped", length(unique(eqtl1_sub$rsid)), "SNPs out of", length(unique(cluster_df$rsID)), "; in selected tissues:", length(unique(eqtl1_sub_selected_tissues$rsid)) ))
-```
-
-
-## joining and saving mappings
-
-````{r}
-cluster_df_multi<- left_join(cluster_df, grof_res, by ="rsID") %>%  # fuma +gprof
-                    left_join(., eqtl1_sub_selected_tissues, by =c("rsID"="rsid")) # . + eQTL
-
-cluster_df_genes3<- cluster_df_multi %>% 
-  dplyr::select(cluster, rsID, geneFUMA, gprofiler_gene, eQTL_gene, everything()) %>%
-  distinct() 
-# save version with tissues 
-write_tsv(cluster_df_genes3, 
-          paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation_w_tissues.tsv"))
-
-cluster_df_genes3_sub<- cluster_df_genes3 %>% 
-                        dplyr::select("cluster" ,"rsID", "geneFUMA","gprofiler_gene" ,"eQTL_gene", "qtl_group" ) %>% distinct() %>% 
-                        group_by_at(vars(-qtl_group)) %>%
-                        summarize(qtl_group = toString(qtl_group)) %>%
-                        ungroup() 
-
-cluster_df_genes3_subtidy <- cluster_df_genes3_sub %>%
-  pivot_longer(cols = c("geneFUMA","gprofiler_gene" ,"eQTL_gene"), names_to = "source", values_to = "gene") %>% 
-  mutate(source = ifelse(source != "eQTL_gene", "positional mapping", "eQTL")) %>% 
-  mutate(qtl_group = ifelse(source!="eQTL", NA, qtl_group )) %>% 
+cluster_df_map <- map2 %>%
+  pivot_longer(cols = c("nearestGene","gene_eQTL"), names_to = "source", values_to = "gene") %>% 
+  mutate(source = ifelse(source == "nearestGene", "positional mapping", "eQTL")) %>% 
+  mutate(qtl_group = ifelse(source!="eQTL", NA, tissue )) %>% 
   distinct() %>% 
   filter(!is.na(gene)) %>%
-  dplyr::select(cluster, rsID, gene, source, qtl_group) %>%
+  dplyr::select(cluster, rsID, gene, source, qtl_group, qtl_FDR=FDR) %>%
+  mutate(qtl_FDR = ifelse(is.na(qtl_group), NA, qtl_FDR)) %>% 
   arrange(cluster, rsID) %>% 
    # DA & PD
   #mutate(cluster_effect_direction = case_when(cluster %in% c("cluster_1", "cluster_Null") ~ "negative",
@@ -149,20 +96,23 @@ cluster_df_genes3_subtidy <- cluster_df_genes3_sub %>%
   mutate(cluster_effect_direction = case_when(rsID == "rs75772194" ~ "positive",
                                  TRUE ~ "negative")) 
 
-
-
 # save tidy version
-write_tsv(cluster_df_genes3_subtidy, 
-          paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation.tsv")) # supl file for 
+write_tsv(cluster_df_map, 
+          paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_genes_long.tsv")) # supl file for 
 ```
 
 
 
 # Pathways - enrichR
 ```{r}
-# load manually updated mapping file
 
-cluster_df_genes2_sub <-  read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation.tsv")) 
+
+#cluster_df_genes2_subOLD <-  read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation.tsv")) 
+#setdiff(cluster_df_map$gene, cluster_df_genes2_subOLD$gene)
+#setdiff( cluster_df_genes2_subOLD$gene, cluster_df_map$gene)
+
+# load manually updated mapping file
+cluster_df_map <-  read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_genes_long.tsv")) 
 
 ```
 
@@ -176,16 +126,19 @@ forest_by_clusters<-forest_data$forest_by_clusters
 res_single<-forest_data$res_single
 
 res_single2<- res_single %>% 
-               left_join(cluster_df_genes2_sub %>%
-                    dplyr::select(rsID,gene), by=c("SNP"='rsID') ) %>% 
+               left_join(cluster_df_map %>%
+                    dplyr::select(rsID,gene), by=c("SNP"='rsID') ) %>% distinct() %>% 
              # group by source
                 group_by_at(vars(-gene)) %>%
                 summarize(gene = toString(gene)) %>%
                 ungroup() 
 
-p_genes <- forest_by_clusters +
+p_genes <- forest_by_clusters$p +
   geom_text(data=res_single2, aes(y=SNP, x=b, label=gene),size =2.5 , hjust=0.5, vjust=-0.5)+xlim(-3,3)+labs(subtitle = "")
 
+### NB: if you get error "Error in discrete_range() : could not find function "discrete_range",
+### need to install older verison of ggplot2: 
+### devtools::install_version("ggplot2", "3.3.5")
 
 # single plot save
 #ggsave(paste0(results_path, "SNP_to_gene_to_pathway/forest_plot_gene_names_", exp_code, ".png"),
@@ -210,10 +163,7 @@ three_plots <-
 
 ggsave(plot=three_plots, 
       height=14, width=7, scale=0.8, dpi=300, 
-       filename=paste0(results_path,"MRClust_results/forest_plot_w_genes_combined.png"))
-
-
-
+       filename=paste0(results_path,"MRClust_results/forest_plot_w_genes_combinedV2.png"))
 
 ```
 
@@ -232,7 +182,7 @@ pathway_dbs <- c("Reactome_2016", "KEGG_2021_Human",
 
 ```{r}
 # run enrichr to collect all pathways
-gene_list <- cluster_df_genes2_sub %>% pull(gene) %>% unique()
+gene_list <- cluster_df_map %>% pull(gene) %>% unique()
 enriched <- enrichr(gene_list, pathway_dbs)
 
 # flatten list into a table; handle empty tables
@@ -265,7 +215,7 @@ enriched_df_unw <- bind_rows(enriched_df_unw , reactome_res_df)
 
 ```{r}
 # merge pathways with clusters
-enriched_df_unw <- left_join(enriched_df_unw, cluster_df_genes2_sub, by  = c("Genes" = "gene"))
+enriched_df_unw <- left_join(enriched_df_unw, cluster_df_map, by  = c("Genes" = "gene"))
 
 ```
 
@@ -335,5 +285,120 @@ da_pathways <- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code
 nda_pathways <- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_pathways_by_clusters_tidy.tsv"))
 pd_pathways <- read_tsv(paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_pathways_by_clusters_tidy.tsv"))
 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+# OUTTAKES - not used in the analysis
+
+
+```{r}
+# read FUMA snp-gene mapping
+if (!grepl("all", exp_code)){exp_code_fuma <- paste0(exp_code, "_all")} else{ exp_code_fuma <- exp_code}
+snpstxt <- read_tsv(paste0(results_path, "FUMA/FUMA_", exp_code_fuma, "/snps.txt")) %>% filter (r2>0.8)# we FUMA-d all gws SNPs, but leftjoin will keep only what is needed if we are working with a subset
+
+cluster_df <-cluster_df %>% left_join(snpstxt %>% dplyr::select(rsID, geneFUMA=nearestGene, uniqID, r2), by = "rsID") 
+
+cluster_df_genes<- cluster_df %>% dplyr::select(cluster, geneFUMA) %>% distinct()
+cluster_df_genes %>% count(geneFUMA,sort=T)
+```
+
+
+## gProfiler - not used
+
+```{r}
+# map to genes with gProfiler:
+library(gprofiler2)
+grof_res <- gprofiler2::gsnpense(query =unique(cluster_df$rsID)) %>% 
+            dplyr::select(rsID=rs_id, gprofiler_gene = gene_names) %>% distinct()
+
+# just check
+cluster_df_tmp<- left_join(cluster_df, grof_res, by ="rsID")
+cluster_df_genes2<- cluster_df_tmp %>% 
+                    dplyr::select(cluster, geneFUMA, gprofiler_gene) %>% distinct()
+```
+
+
+## eQTL catalogue - not used
+```{r}
+### Querying eQTL catalogue for variants
+
+eqtl1 <- eqtl_for_snps(unique(cluster_df$rsID))
+
+eqtl1_sub <- eqtl1 %>% dplyr::select(rsid, hgnc_symbol) %>% distinct()
+
+print(paste("mapped", length(unique(eqtl1_sub$rsid)), "SNPs out of", length(unique(cluster_df$rsID))))
+
+eqtl1_sub %>% count(rsid, sort=T) %>% View()
+eqtl1 %>% count(qtl_group, sort=T) %>% View()
+
+tissues_keep <-c( "Adipose_Subcutaneous" ,"Adipose_Visceral_Omentum" ,
+                 "Breast_Mammary_Tissue" ) # GTEx V8 only
+
+#eqtl1 %>% dplyr::select(qtl_group, study_id) %>% filter(qtl_group %in% tissues_keep) %>% distinct() %>%  View()
+
+
+eqtl1_sub_selected_tissues <- eqtl1 %>% 
+                              filter(qtl_group %in% tissues_keep) %>% 
+                              dplyr::select(rsid, eQTL_gene = hgnc_symbol,qtl_group, median_tpm, pvalue) %>% 
+                              distinct() %>% 
+                              filter(median_tpm > 0) %>% 
+                              mutate(eQTL_gene = ifelse(eQTL_gene=="", NA, eQTL_gene)) %>% 
+                              filter(!is.na(eQTL_gene))
+
+
+print(paste("mapped", length(unique(eqtl1_sub$rsid)), "SNPs out of", length(unique(cluster_df$rsID)), "; in selected tissues:", length(unique(eqtl1_sub_selected_tissues$rsid)) ))
+```
+
+
+## joining and saving mappings -not used 
+
+````{r}
+cluster_df_multi<- left_join(cluster_df, grof_res, by ="rsID") %>%  # fuma +gprof
+                    left_join(., eqtl1_sub_selected_tissues, by =c("rsID"="rsid")) # . + eQTL
+
+cluster_df_genes3<- cluster_df_multi %>% 
+  dplyr::select(cluster, rsID, geneFUMA, gprofiler_gene, eQTL_gene, everything()) %>%
+  distinct() 
+# save version with tissues 
+write_tsv(cluster_df_genes3, 
+          paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation_w_tissues.tsv"))
+
+cluster_df_genes3_sub<- cluster_df_genes3 %>% 
+                        dplyr::select("cluster" ,"rsID", "geneFUMA","gprofiler_gene" ,"eQTL_gene", "qtl_group" ) %>% distinct() %>% 
+                        group_by_at(vars(-qtl_group)) %>%
+                        summarize(qtl_group = toString(qtl_group)) %>%
+                        ungroup() 
+
+cluster_df_genes3_subtidy <- cluster_df_genes3_sub %>%
+  pivot_longer(cols = c("geneFUMA","gprofiler_gene" ,"eQTL_gene"), names_to = "source", values_to = "gene") %>% 
+  mutate(source = ifelse(source != "eQTL_gene", "positional mapping", "eQTL")) %>% 
+  mutate(qtl_group = ifelse(source!="eQTL", NA, qtl_group )) %>% 
+  distinct() %>% 
+  filter(!is.na(gene)) %>%
+  dplyr::select(cluster, rsID, gene, source, qtl_group) %>%
+  arrange(cluster, rsID) %>% 
+   # DA & PD
+  #mutate(cluster_effect_direction = case_when(cluster %in% c("cluster_1", "cluster_Null") ~ "negative",
+  #                               rsID == "rs73169097" ~ "negative",
+  #                               TRUE ~ "positive"))
+  # NDA
+  mutate(cluster_effect_direction = case_when(rsID == "rs75772194" ~ "positive",
+                                 TRUE ~ "negative")) 
+
+
+
+# save tidy version
+write_tsv(cluster_df_genes3_subtidy, 
+          paste0(results_path, "SNP_to_gene_to_pathway/", exp_code, "_snps_clusters_gene_annotation.tsv")) # supl file for 
 ```
 

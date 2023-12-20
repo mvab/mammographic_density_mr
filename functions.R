@@ -396,34 +396,47 @@ eqtl_for_snps <- function(variants){
 
 get_eQTL_for_snp <- function(variant){
   
+  stop("THIS FUNCTION IS CURRENTLY BROKEN - DO NOT USE")
+  
+  variant_assoc_df <- tibble()
+  
   request = httr::GET(url = "http://www.ebi.ac.uk/eqtl/api/associations", 
                       query = list(
                         variant_id = variant,
-                        size = 1000,
+                        study = 'GTEx_V8',
+                        qtl_group =  "Adipose_Subcutaneous",
+                        size = 1000, # API is limited to return 1000 ; repeat will query many times
                         p_upper = 5e-8)
   )
   #print(variant)
   stopifnot(request$status_code==200) # 200 is good
   
-  response = httr::content(request, as = "text", encoding = "UTF-8")
-  variant_assoc = jsonlite::fromJSON(response, flatten = TRUE)$`_embedded`$associations
-  
-  if (length(variant_assoc)!=0){
-    for (i in 1:length(variant_assoc)) {
-      variant_assoc[[i]]<-variant_assoc[[i]] %>% purrr::discard(is.null) # drop any null items
+  repeat{
+    response = httr::content(request, as = "text", encoding = "UTF-8")
+    variant_assoc = jsonlite::fromJSON(response, flatten = TRUE)$`_embedded`$associations
+    
+    if (length(variant_assoc)!=0){
+      for (i in 1:length(variant_assoc)) {
+        variant_assoc[[i]]<-variant_assoc[[i]] %>% purrr::discard(is.null) # drop any null items
+      }
+      variant_assoc <- bind_rows(variant_assoc) %>% dplyr::select(rsid, gene_id, qtl_group, pvalue, everything()) %>% arrange(pvalue)
+      variant_assoc_df <- bind_rows(variant_assoc_df, variant_assoc)
+    }else{
+      return(data.frame())
     }
-    variant_assoc_df <- bind_rows(variant_assoc) %>% dplyr::select(rsid, gene_id, qtl_group, pvalue, everything()) %>% arrange(pvalue)
-  }else{
-    return(data.frame())
-  }
-  
-  nextq = jsonlite::fromJSON(response, flatten = TRUE)$`_links`
-  if( any(names(nextq)=="next")){
-    stop("API limits 1000 results, but there might be more -- need to investigate")
+    
+    nextq = jsonlite::fromJSON(response, flatten = TRUE)$`_links`
+    if( any(names(nextq)=="next")){
+      # getting next 1000 results
+      request = httr::GET(nextq$`next`$href)
+      if (request$status_code!=200) break
+    } else{
+      break
+    }
+    print(paste0("df size: ", nrow(variant_assoc_df)))
   }
   return(variant_assoc_df)
 }
-
 
 map_ensembl_to_genename <- function(values){
   
