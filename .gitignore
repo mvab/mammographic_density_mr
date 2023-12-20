@@ -48,9 +48,13 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
+#mac
+.DS_Store
+ 
 # files
 set_paths.R
 testing_MD_instruments_local_file.R
 figures/*
 various_exploratory_scripts/*
 data_lookup\ copy\ for\ testing.csv
+
