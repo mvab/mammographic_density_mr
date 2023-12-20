@@ -753,3 +753,60 @@ ggsave(paste0("figures_manuscript/figure6_paper.png"),
 
 ```
 
+
+# extra
+
+Comparing total and direct of cBMI + aaM
+
+
+```{r}
+library(rio)
+paper <- import_list("../../Mini-project2/05_Writing/manuscript/final_version/Supplementary_Data_Vabistsevits2022.xlsx")
+
+aaM_total<- paper$`Suppl Data 2` %>%
+            filter(exposure == "Age at menarche (UKB)") %>% 
+            filter(method == "Inverse variance weighted") %>% 
+            mutate(effect = "Univariable MR")
+
+cBMI_total <- paper$`Suppl Data 6` %>%
+            filter(method == "Inverse variance weighted") %>% 
+            filter(exposure == "Childhood body size") %>% 
+            mutate(effect = "Univariable MR")
+
+cBMI_direct <- paper$`Suppl Data 5` %>%
+            filter(trait_category == "reproductive_traits") %>% 
+            filter(accounted_for =="Age at menarche (UKB)") %>% 
+            mutate(effect = "Multivariable MR")
+
+aaM_direct <- paper$`Suppl Data 5` %>%
+            filter(trait_category == "reproductive_traits") %>% 
+            filter(exposure =="Age at menarche (UKB)") %>% 
+            mutate(effect = "Multivariable MR")
+
+
+res <- bind_rows(aaM_total, cBMI_total,cBMI_direct, aaM_direct) %>% 
+  select(effect, exposure, outcome, or, or_lci95, or_uci95) %>% 
+  mutate(effect = factor(effect, levels= c("Univariable MR", "Multivariable MR"))) %>% 
+  mutate(OR_CI = paste0(round(or,2), " [", round(or_lci95,2), ":", round(or_uci95,2), "]")) 
+
+
+
+
+
+ p<-  ggplot(res, aes(y=exposure, x=or, label=outcome, colour=effect)) +
+  geom_errorbarh(aes(xmin=or_lci95, xmax=or_uci95), height=0.15) +
+  geom_point(size=2)+
+  #xlim(-1.2,1.2)+
+  scale_color_manual(values=c("steelblue", "tomato"))+
+  #scale_shape_manual(values = c(19)) +
+  geom_text(aes(label=OR_CI),hjust=0.3, vjust=-1.2, size =2.5, color = '#333232')+
+  geom_vline(xintercept=1, linetype=3,) +
+  theme_minimal_hgrid(10, rel_small = 1) +
+  facet_wrap(~effect, ncol=1)+
+  labs(color = "",y = "", x = "")+
+  theme(legend.position = "none", plot.title.position  = "plot")
+
+
+
+```
+
