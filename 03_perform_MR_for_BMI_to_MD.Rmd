@@ -111,6 +111,31 @@ for (i in 1:length(mediators)){
   res_early <- mr(dat_early, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) 
   res_adult <- mr(dat_adult, method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio'))   
   
+  
+  # exploratory
+  #res_single <- mr_singlesnp(dat_early, all_method=c("mr_ivw_mre","mr_egger_regression", "mr_weighted_median"))%>% 
+  #                          mutate(SNP = gsub("Inverse variance weighted (multiplicative random effects)", "IVW (MRE)", SNP, fixed = T))
+  #steiger_wrong<- streiger_early$single_rsq %>% filter(steiger_dir == F) %>% pull(SNP)
+  #single_forest_cols <- mr_forest_plot_outliers(res_single,  outliers_list=steiger_wrong,
+  #                                              outliers_colour = "tomato", method = "Steiger", or=F) 
+  #ggsave(plot=single_forest_cols, 
+  #    height=15, width=5,
+  #    filename=paste0(results_path,  "/testing_steiger_BMItoMD/earlyBMI_to_", mediator_file_name,"_snps_steiger_dir.png"))
+#
+
+  #res_early_steiger <- mr(dat_early %>% filter(!SNP %in% steiger_wrong),
+  #                method_list=c('mr_ivw','mr_egger_regression','mr_weighted_median', 'mr_wald_ratio')) 
+  #res_early_steiger_tidy<- res_early_steiger %>%
+  #            split_outcome() %>% 
+  #            split_exposure() %>% 
+  #            generate_odds_ratios()
+
+  #res_early_tidy$instruments <- 'tophits'
+  #res_early_steiger_tidy$instruments <- "steiger filtered"
+  #pd_compare <- bind_rows(res_early_tidy,res_early_steiger_tidy )
+  #compare_all<- bind_rows(da_compare, nda_compare, pd_compare) %>% 
+  #  select(exposure, outcome, method, nsnp, instruments, b,lo_ci, up_ci, se,pval)
+  #compare_all %>%  write_csv(paste0(results_path,  "/testing_steiger_BMItoMD/steiger_mr_bmi_to_md.csv"))
           
   # Tidy up results and save
   res_early_tidy<- res_early %>%
