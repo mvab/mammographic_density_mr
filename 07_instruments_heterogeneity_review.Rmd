@@ -36,6 +36,9 @@ bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv"))
 
 # load functions
 source("functions.R")
+
+# collecting data for Source Data file here:
+source_data<- list()
 ```
 
 # Select and load data - one at a time
@@ -197,6 +200,8 @@ outliers_list = append(outliers, 'Outlier corrected - IVW')
 
 res_single_presso <- res_single_presso %>% mutate(outcome = "Overall breast cancer")
 
+source_data[["fig4a"]]<- res_single_presso
+
 forest_presso <- mr_forest_plot_outliers(res_single_presso,  outliers_list= outliers_list, outliers_colour = "steelblue", method = "MR-PRESSO") 
 
 ggsave(plot=forest_presso, 
@@ -276,6 +281,9 @@ outliers_list = append(ivwrad$sortoutliers$SNP, 'Outlier corrected - IVW')
 
 res_outliers_radial <- res_outliers_radial %>% mutate(outcome = "Overall breast cancer")
 
+source_data[["fig4b"]]<- res_outliers_radial
+
+
 forest_radial <- mr_forest_plot_outliers(res_outliers_radial,  outliers_list=outliers_list, outliers_colour = "orange", method = "Radial-MR") 
 
 ggsave(plot=forest_radial, 
@@ -343,7 +351,7 @@ ggsave(plot=clust_plot_best,
        filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_clusters.png"))
 
 
-
+source_data[["fig4c"]] <-cluster_results$results$best
 
 # extract SNP (and optionally drop null/junk)
 clust_list <- names(cluster_results$cluster_membership)
@@ -389,7 +397,7 @@ forest_data = list(forest_by_clusters=forest_by_clusters,
                    res_single=res_single)
 save(forest_data , file = paste0(results_path,"MRClust_results/",exp_code ,"_forest_plot.Rdata"))
 
-
+#load(paste0(results_path,"MRClust_results/",exp_code ,"_forest_plot.Rdata"))
 
 # do mr by cluster
 mr_cluster_list <- list()
@@ -416,13 +424,15 @@ out <- bind_rows(mr_cluster_list) %>% filter(cluster_no != 'cluster_Junk')
 res_single_w_clust <- bind_rows(res_single, 
                                 out %>% rename(SNP = cluster_no, p = pval) %>% 
                                         select(-c(method, nsnp, or, or_lci95, or_uci95))) %>% 
-                      filter(!grepl("All", SNP))
+                      filter(!grepl("All", SNP))  %>% mutate(outcome = "Overall breast cancer")
+
 extra_cluster_df <- data.frame(rsID = c("cluster_1", "cluster_2", "cluster_3", "cluster_4"),
                               cluster = c("cluster_1", "cluster_2", "cluster_3", "cluster_4"))
 clust_snp_df_top_cluster <- bind_rows(clust_snp_df_top_cluster,extra_cluster_df)
 
 res_single <- res_single %>% mutate(outcome = "Overall breast cancer")
 
+source_data[["fig4d"]]<- res_single_w_clust 
 forest_by_clusters <- mr_forest_plot_clusters(res_single_w_clust, 
                                               outliers_df=clust_snp_df_top_cluster, outliers_colour_list=cbpalette)
 forest_by_clusters$p
@@ -480,11 +490,13 @@ load(file=paste0(results_path, "phewas/",exp_code,"_cluster_phewas.RData"))
 snp_phewas_df<-  snp_phewas %>% 
   purrr::reduce(plyr::rbind.fill) %>% 
   mutate(beta=as.numeric(beta)) %>%
-  mutate(se=as.numeric(se))
+  mutate(se=as.numeric(se)) %>% 
+  # add FDR correction
+  arrange(p) %>% mutate(p.fdr = p.adjust(p, method = "BH")) 
 
 
 snp_phewas_df2 <- left_join(snp_phewas_df, clust_snp_df_top_cluster %>% dplyr::select(-probability), by=c('rsid' = 'rsID')) %>% 
-                 mutate(log10P = -log10(p)) %>% 
+                 mutate(log10P = -log10(p.fdr)) %>%  # using FDR pval
                  mutate(log10P_trunc = ifelse(log10P >= 50, 50, log10P)) %>% 
                  left_join(res_single %>% dplyr::select(rsid=SNP, MD_wald_ratio_beta = b), by='rsid') 
 
@@ -506,7 +518,7 @@ breast_exceptions <- c("Breast size", "Breast size bra cup size in women", "Hype
 snp_phewas_df3<- snp_phewas_df3 %>% 
   mutate(label = case_when((exposure_cat == "Breast related" & !trait %in% breast_exceptions) ~ "Breast cancer",
                                                              TRUE ~ "Other phenotypes")) %>% 
-  mutate(include_in_plot = ifelse (p<=5e-08 , T, F))
+  mutate(include_in_plot = ifelse (p.fdr<=5e-08 , T, F))
 
 snp_phewas_df3 %>%  filter(exposure_cat == "Breast related") %>% dplyr::select(rsid, trait, log10P, study, source, exposure_cat, label) %>% arrange(trait, rsid) %>% View()
 
@@ -536,6 +548,8 @@ phewas_plot <- ggplot(data = snp_phewas_df3_sub,
        y = "-log10 p-value of association with other traits", x = "Dense area SNPs, by cluster", colour= "cluster")+
   guides(size="none")
 
+source_data[["fig5"]] <- snp_phewas_df3_sub
+
 ggsave(plot=phewas_plot, 
       height=3.9, width=9, scale=1, dpi=300, # DA
       #height=3, width=9, scale=1, dpi=300, # NDA
@@ -549,9 +563,22 @@ ggsave(plot=phewas_plot,
        filename=paste0("figures_manuscript/figure5_poster.png"))
 
 
+ggsave(plot=phewas_plot, 
+      height=8, width=18, scale=1.2, dpi=300, units = c("cm"), # DA
+      #height=3, width=9, scale=1, dpi=300, # NDA
+      #height=3.3, width=9, scale=1, dpi=300, # PD
+       filename=paste0("figures_manuscript/figure5_paper.svg"))
+
 
 ```
 
+
+```{r}
+# save source data
+names(source_data)
+openxlsx::write.xlsx(source_data, file = 'figures_manuscript/source_data2.xlsx')
+
+```
 
 
 
@@ -575,6 +602,14 @@ ggsave(plot=four_plots,
       height=7, width=10, scale=1, dpi=300, # PD
       # filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_combined_plots.png"))
       filename=paste0("figures_manuscript/","figure4_", exp_code ,".png"))
+
+
+ggsave(plot=four_plots, 
+      height=16.5, width=18, dpi=300, scale=1.37, units=c("cm"),# DA
+      #height=8, width=10, scale=1, dpi=300, # NDA
+      #height=7, width=10, scale=1, dpi=300, # PD
+      # filename=paste0(results_path,"MRClust_results/",exp_code ,"_snps_combined_plots.png"))
+      filename=paste0("figures_manuscript/","figure4_", exp_code ,".svg"))
 
 
 

@@ -31,6 +31,9 @@ bcac_lookup<-read_csv(paste0("metadata/data_lookup_BCAC.csv")) %>% filter(!grepl
 
 source("functions.R")
 
+# collecting data for Source Data file here:
+source_data<- list()
+
 ```
 
 
@@ -298,13 +301,13 @@ pal<-c(unname(yarrr::piratepal("pony")))[c(1,8,2)]
 ## adhoc change outcome label
 dat_all <- dat_all %>% ####### PICK ONE!!!
   # long names
-  #mutate(outcome_short = case_when(outcome == "Dense area" ~ "Dense \narea",
-  #                                outcome == "Non-dense area" ~ "Non-dense \narea",
-  #                                outcome == "Percent density" ~ "Percent \ndensity")) %>% 
+  mutate(outcome_short = case_when(outcome == "Dense area" ~ "Dense \narea",
+                                  outcome == "Non-dense area" ~ "Non-dense \narea",
+                                  outcome == "Percent density" ~ "Percent \ndensity")) #%>% 
   # ALT short names - like for poster!
-  mutate(outcome_short = case_when(outcome == "Dense area" ~ "DA",
-                                    outcome == "Non-dense area" ~ "NDA",
-                                    outcome == "Percent density" ~ "PD"))
+  #mutate(outcome_short = case_when(outcome == "Dense area" ~ "DA",
+  #                                  outcome == "Non-dense area" ~ "NDA",
+  #                                  outcome == "Percent density" ~ "PD"))
 
 pX<-ggplot(dat_all, aes(y=exposure, x=b, label=outcome_short, shape=effect_direction, colour=exposure)) +
   geom_errorbarh(aes(xmin=lo_ci, xmax=up_ci), height=0.2) +
@@ -320,24 +323,27 @@ pX<-ggplot(dat_all, aes(y=exposure, x=b, label=outcome_short, shape=effect_direc
   scale_y_discrete(position = "right")+
   labs(color = "Exposure",y = "Outcome",
        x = "\nbeta coefficient (1 SD change in MD phenotype per body size category or age SD change)\n")+
-  theme(legend.position = "left", legend.justification = "center", 
+  theme(legend.position = "bottom", legend.justification = "left", legend.title = element_text(face = "bold"),
         plot.title.position  = "plot",
         strip.text.x = element_text(face = "bold"),
-        strip.text.y = element_text(face = "bold"),
+        #strip.text.y = element_text(face = "bold"),
+        axis.title.y = element_text(face="bold"),
         axis.text.y=element_blank(),
         axis.text.x =element_text(size = 8),
-        panel.spacing = unit(1, "lines"))+
-  guides(shape="none", colour=guide_legend(reverse = T, ncol = 1,byrow=TRUE))
+        panel.spacing = unit(0.5, "lines"))+
+  guides(shape="none", colour=guide_legend(reverse = T, nrow = 1,byrow=TRUE))
+
+source_data[["fig2"]]<-dat_all %>% select(-starts_with("or"))
 
 ggsave(paste0("figures_manuscript/figure2_poster.png"), # uses ABBS
        plot=pX, scale=1.2, 
        width=15, height=5,
        units=c("cm"), dpi=300, limitsize=F)
 
-ggsave(paste0("figures_manuscript/figure2_paper.png"),
+ggsave(paste0("figures_manuscript/figure2_paper.svg"),
        plot=pX, #scale=1, 
-       width=30, height=7.5,
-       units=c("cm"), dpi=300, limitsize=F)
+       width=180, height=79,
+       units=c("mm"), dpi=300, limitsize=F)
 ```
 
 
@@ -579,7 +585,7 @@ dat_direct <- read_tsv(paste0(results_path, current_trait_category, "/mvmr/merge
                               outcome == "Luminal B1" ~ "Luminal B1 subtype",
                               outcome == "Luminal B2" ~ "Luminal B2 subtype",
                               outcome == "HER2-enriched" ~ "HER2-enriched subtype" )) %>% 
-   mutate(outcome = factor(outcome, levels = rev(c("Overall breast cancer",  "ER+ breast cancer","ER- breast cancer"  ,
+   mutate(outcome = factor(outcome, levels = rev(c("Overall breast cancer",  "ER+ breast cancer","ER- breast cancer",
                                                 "Luminal A subtype", "Luminal B1 subtype" , "Luminal B2 subtype",
                                                "HER2-enriched subtype" , "Triple-negative subtype")))) %>% 
   mutate(effect = "Direct effect \n (accounted for\n childhood body size)")
@@ -614,20 +620,25 @@ p<-ggplot(dat_merged,
   scale_shape_manual(values=c(16,1))+
   scale_size_manual(values=c(2.7, 2))+
   scale_x_log10(breaks = c(0,1,2,3))+
-  theme(strip.text = element_text(face = 'bold'),
-        axis.text.y = element_text(angle = 90, vjust=1, hjust = 0.5, face = "bold"),
+  theme(#strip.text.y = element_text(face = 'bold'),
+        strip.text.x = element_text(face = "bold", size=8),
+        axis.text.y = element_text(angle = 90, vjust=1, hjust = 0.5),
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_line(),
+        axis.title.y = element_text(face="bold"),
          panel.spacing = unit(1, "lines"),
         )+
   geom_vline(xintercept=1, linetype=3) +
   facet_grid(cols=vars(effect))+
   labs(color = "Outcome",y = "Exposure\n", x = "Odds ratio", shape="")+
-  theme(legend.position = "right", legend.direction = "vertical", 
+  theme(legend.position = "bottom", legend.direction = "vertical", 
         plot.title.position = "plot",
+        legend.title = element_text(face = "bold"),
         strip.text = element_text(size = 7))+
-  guides(colour = guide_legend(reverse = TRUE), shape="none", size="none")
+  guides(colour = guide_legend(reverse = TRUE, ncol=2), shape="none",  size="none")
 
+
+source_data[["fig3"]] <- dat_merged
 
 
 ggsave(paste0("figures_manuscript/figure3_poster.png"),
@@ -635,10 +646,10 @@ ggsave(paste0("figures_manuscript/figure3_poster.png"),
        width=14, height=15,
        units=c("cm"), dpi=300, limitsize=F)
 
-ggsave(paste0("figures_manuscript/figure3_paper.png"),
-       plot=p, scale=1.4, 
-       width=9, height=9,
-       units=c("cm"), dpi=300, limitsize=F)
+ggsave(paste0("figures_manuscript/figure3_paper.svg"),
+       plot=p, #scale=1.4, 
+       width=88, height=140,
+       units=c("mm"), dpi=300, limitsize=F)
 
 
 ```
@@ -648,11 +659,11 @@ ggsave(paste0("figures_manuscript/figure3_paper.png"),
 
 # Figure 4
 
-This figure is in 06_instruments_heterogeneity_review script
+This figure is in 07_instruments_heterogeneity_review script
 
 # Figure 5
 
-This figure is in 06_instruments_heterogeneity_review script
+This figure is in 07_instruments_heterogeneity_review script
 
 
 
@@ -739,23 +750,32 @@ p<-ggplot(all_data,
         strip.text.y = element_text(face = 'bold'),
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_line(),
+        axis.title.y = element_text(face="bold")
         )+
   panel_border()+
   labs(color = "Outcome",y = "Exposure\n", x = "Odds ratio", shape="")+
-  theme(legend.position = "right", legend.direction = "vertical", 
-        plot.title.position = "plot")+
-  guides(colour = guide_legend(reverse = TRUE), shape="none")
+  theme(legend.position = "bottom", legend.direction = "vertical", 
+        plot.title.position = "plot",   legend.title = element_text(face = "bold"))+
+  guides(colour = guide_legend(reverse = TRUE, ncol=2), shape="none")
 
+source_data[["fig6"]] <- all_data
 
 ggsave(paste0("figures_manuscript/figure6_poster.png"),
        plot=p, scale=1, 
        width=10, height=12,
        units=c("cm"), dpi=300, limitsize=F)
 
-ggsave(paste0("figures_manuscript/figure6_paper.png"),
-       plot=p, scale=1.3, 
-       width=8, height=10,
-       units=c("cm"), dpi=300, limitsize=F)
+ggsave(paste0("figures_manuscript/figure6_paper.svg"),
+       plot=p, #scale=1.3, 
+       width=88, height=140,
+       units=c("mm"), dpi=300, limitsize=F)
+
+```
+
+```{r}
+# save source data
+names(source_data)
+openxlsx::write.xlsx(source_data, file = 'figures_manuscript/source_data1.xlsx')
 
 ```
 
