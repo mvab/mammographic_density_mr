@@ -6,6 +6,7 @@ This repository contains code and materials from a research project done as a pa
 
 Pre-print: [https://www.medrxiv.org/content/10.1101/2023.09.01.23294765v1](https://www.medrxiv.org/content/10.1101/2023.09.01.23294765v1)
 
+Cite this codebase: <a href="https://doi.org/10.5281/zenodo.10724803"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.10724803.svg" alt="DOI"></a>
 
  **This README contains:**
 
