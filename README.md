@@ -4,9 +4,9 @@
 
 This repository contains code and materials from a research project done as a part of PhD programme at the University of Bristol, MRC-IEU.
 
-Pre-print: [https://www.medrxiv.org/content/10.1101/2023.09.01.23294765v1](https://www.medrxiv.org/content/10.1101/2023.09.01.23294765v1)
+Paper in Nature Communications: [https://www.nature.com/articles/s41467-024-48105-7](https://www.nature.com/articles/s41467-024-48105-7)
 
-Cite this codebase: <a href="https://doi.org/10.5281/zenodo.10724803"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.10724803.svg" alt="DOI"></a>
+_If you are using this codebase, please cite:_ [https://www.nature.com/articles/s41467-024-48105-7](https://www.nature.com/articles/s41467-024-48105-7)
 
  **This README contains:**
 
